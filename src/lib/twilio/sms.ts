@@ -14,16 +14,23 @@ export async function sendSMS(
 ) {
   const client = getTwilioClient();
   const from = process.env.TWILIO_PHONE_NUMBER;
+  // Messaging Service de Twilio: su Sender Pool incluye el Alpha Sender "Propyte" y el
+  // número. Twilio elige el remitente por país del destinatario: donde se soporta Sender
+  // ID alfanumérico el cliente ve "Propyte"; en el resto (p. ej. EE. UU./Canadá) usa el
+  // número del pool. Si no está configurado, se conserva el comportamiento anterior.
+  const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
 
-  if (!from) throw new Error("TWILIO_PHONE_NUMBER no configurado");
+  if (!messagingServiceSid && !from) {
+    throw new Error("Configura TWILIO_MESSAGING_SERVICE_SID o TWILIO_PHONE_NUMBER");
+  }
 
   const normalized = normalizePhone(to);
 
   // Enviar via Twilio
   const twilioMsg = await client.messages.create({
     body,
-    from,
     to: normalized,
+    ...(messagingServiceSid ? { messagingServiceSid } : { from: from as string }),
   });
 
   // Crear registro de mensaje

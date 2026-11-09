@@ -77,6 +77,10 @@ vi.mock("@/lib/intake/perfil-desde-hub", () => ({
 }));
 // Acuerdo de actividad (E8): se dobla para probar el aislamiento del tick; la logica tiene sus
 // pruebas en lib/workflows/acuerdo-actividad.test.ts.
+// #990: igual que el acuerdo de actividad: su lógica se prueba en messaging/esperando-respuesta.test.ts.
+vi.mock("@/lib/messaging/esperando-respuesta", () => ({
+  revisarConversacionesEsperando: async () => ({ revisadas: 0, esperando: 0, nivel1: 0, nivel2: 0, notificaciones: 0 }),
+}));
 vi.mock("@/lib/workflows/acuerdo-actividad", () => ({
   revisarAcuerdoDeActividad: async () => ({ asesores: 0, incumplidos: 0, notificaciones: 0 }),
 }));

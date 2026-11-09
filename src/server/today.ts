@@ -7,6 +7,7 @@ import { enLotes } from "@/lib/db/lotes";
 import { realLeadWhere } from "@/lib/leads/real-leads";
 import { resolveActivityScope } from "@/lib/activities/scope";
 import { cancunDayRange } from "@/lib/agenda/grouping";
+import { conversacionesEsperandoRespuesta, haceCuanto } from "@/lib/messaging/esperando-respuesta";
 
 export interface TodayMini {
   id: string;
@@ -27,6 +28,8 @@ export interface TodayView {
   slaAtRisk: { count: number; items: TodayMini[] };
   tasks: { count: number; items: TodayMini[] };
   conversations: { count: number; items: TodayMini[] };
+  /** #990: conversaciones en manos de una persona donde el cliente escribió y nadie ha contestado. */
+  esperandoRespuesta: { count: number; items: TodayMini[] };
   visits: { count: number; items: TodayMini[] };
   hotDeals: { count: number; items: TodayMini[] };
   openQuotes: { count: number };
@@ -37,6 +40,7 @@ const EMPTY: TodayView = {
   slaAtRisk: { count: 0, items: [] },
   tasks: { count: 0, items: [] },
   conversations: { count: 0, items: [] },
+  esperandoRespuesta: { count: 0, items: [] },
   visits: { count: 0, items: [] },
   hotDeals: { count: 0, items: [] },
   openQuotes: { count: 0 },
@@ -92,6 +96,7 @@ export async function getTodayView(userId: string, role: string): Promise<TodayV
       slaCount, sla,
       tasksCount, tasks,
       convCount, conv,
+      espera,
       visitsCount, visits,
       hotCount, hot,
       openQuotes,
@@ -128,6 +133,15 @@ export async function getTodayView(userId: string, role: string): Promise<TodayV
         select: { id: true, unreadCount: true, lastInboundAt: true, contact: { select: { id: true, firstName: true, lastName: true } } },
         orderBy: { lastInboundAt: "desc" }, take: 6,
       }),
+      // 4b. #990: clientes esperando respuesta. Exacto, no por `unreadCount` (en producción 14 de
+      // 16 tenían 0: alguien abrió el hilo sin contestar): cualquier HUMAN cuyo último mensaje no
+      // interno es del cliente, sin umbral, y que es MÍO (yo controlo el hilo o el contacto es
+      // mío; el propio usuario, no su equipo). Misma lógica que el cron.
+      () => conversacionesEsperandoRespuesta(
+        prisma,
+        { OR: [{ controlledById: userId }, { contact: { assignedToId: userId } }] },
+        now,
+      ),
       // 5. Visitas de hoy
       () => prisma.activity.count({
         where: { deletedAt: null, activityType: { in: ["MEETING_PRESENTIAL", "MEETING_VIRTUAL", "MEETING_SHOWROOM"] as never }, dueDate: { gte: startToday, lte: endToday }, ...activityUserScope },
@@ -180,6 +194,16 @@ export async function getTodayView(userId: string, role: string): Promise<TodayV
       conversations: {
         count: convCount,
         items: conv.map((c) => ({ id: c.id, title: name(c.contact), subtitle: `${c.unreadCount} sin leer`, meta: c.lastInboundAt?.toISOString(), href: "/inbox" })),
+      },
+      esperandoRespuesta: {
+        count: espera.esperando.length,
+        items: espera.esperando.slice(0, 6).map(({ c, desde }) => ({
+          id: c.id,
+          title: name(c.contact),
+          subtitle: "Esperando tu respuesta",
+          meta: `escribió ${haceCuanto(desde, now)}`,
+          href: `/inbox?c=${c.id}`,
+        })),
       },
       visits: {
         count: visitsCount,

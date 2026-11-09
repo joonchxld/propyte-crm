@@ -197,6 +197,14 @@ const ETAPAS: ReadonlyArray<{ nombre: string; correr: () => Promise<unknown> }> 
     correr: async () =>
       (await import("@/lib/workflows/acuerdo-actividad")).revisarAcuerdoDeActividad(prisma, new Date()),
   },
+  // #990: conversaciones en HUMAN donde el cliente escribió y nadie contestó (2 h y 1 día
+  // hábiles). Fuera de horario hábil no consulta nada; el candado son los propios avisos
+  // (conversation_waiting_N), así que correr cada minuto no repite. Ver messaging/esperando-respuesta.ts.
+  {
+    nombre: "conversacionesEsperando",
+    correr: async () =>
+      (await import("@/lib/messaging/esperando-respuesta")).revisarConversacionesEsperando(prisma, new Date()),
+  },
   // #889: correo entrante de los buzones Gmail conectados → historial del contacto + aviso
   // al asesor. Va al final porque no alimenta a ninguna otra etapa y es la única que sale a
   // la red (API de Gmail). Import dinámico para no cargar googleapis si nadie lo usa. Una

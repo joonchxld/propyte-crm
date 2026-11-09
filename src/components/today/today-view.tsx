@@ -95,7 +95,7 @@ function Section({ title, icon: Icon, count, items = [], accent, emptyText, view
 export function TodayView({ data, firstName, userId }: { data: TodayData; firstName: string; userId: string }) {
   const total =
     data.newLeads.count + data.slaAtRisk.count + data.tasks.count +
-    data.conversations.count + data.visits.count;
+    data.conversations.count + data.esperandoRespuesta.count + data.visits.count;
 
   return (
     <div className="space-y-5">
@@ -116,6 +116,8 @@ export function TodayView({ data, firstName, userId }: { data: TodayData; firstN
           accent="#2563EB" emptyText="Sin leads nuevos pendientes." viewAllHref="/contacts?status=NUEVO" />
         <Section title="Conversaciones sin responder" icon={MessageSquare} count={data.conversations.count} items={data.conversations.items}
           accent="#0D9488" emptyText="Bandeja al día." viewAllHref="/inbox" />
+        <Section title="Clientes esperando respuesta" icon={MessageSquare} count={data.esperandoRespuesta.count} items={data.esperandoRespuesta.items}
+          accent="#DC2626" emptyText="Nadie te está esperando." viewAllHref="/inbox" />
         <Section title="Tareas de hoy y vencidas" icon={CheckSquare} count={data.tasks.count} items={data.tasks.items}
           accent="#D97706" emptyText="Sin tareas pendientes."
           viewAllHref="/agenda" viewAllAlways

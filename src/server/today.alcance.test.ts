@@ -22,6 +22,7 @@ const walkInFindMany = vi.fn();
 const quoteCount = vi.fn();
 const slaCount = vi.fn();
 const slaFindMany = vi.fn();
+const messageGroupBy = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   default: {
@@ -47,6 +48,7 @@ vi.mock("@/lib/db", () => ({
       findMany: (...a: unknown[]) => walkInFindMany(...a),
     },
     quote: { count: (...a: unknown[]) => quoteCount(...a) },
+    message: { groupBy: (...a: unknown[]) => messageGroupBy(...a) },
     slaTimer: {
       count: (...a: unknown[]) => slaCount(...a),
       findMany: (...a: unknown[]) => slaFindMany(...a),
@@ -57,6 +59,7 @@ vi.mock("@/lib/db", () => ({
 import { getTodayView } from "./today";
 
 beforeEach(() => {
+  messageGroupBy.mockReset().mockResolvedValue([]);
   userFindMany.mockReset().mockResolvedValue([{ id: "miembro-1" }]);
   for (const c of [contactCount, dealCount, activityCount, conversationCount, walkInCount, quoteCount, slaCount]) {
     c.mockReset().mockResolvedValue(0);
@@ -170,5 +173,41 @@ describe("getTodayView — los contactos borrados no aparecen en la vista (#683)
 
     expect(contactCount.mock.calls[0][0].where.deletedAt).toBeNull();
     expect(contactoEnTemporizadores().deletedAt).toBeNull();
+  });
+});
+
+describe("getTodayView — clientes esperando respuesta (#990)", () => {
+  const hace3h = new Date(Date.now() - 3 * 3600000);
+  const conv = (id: string) => ({
+    id, channel: "WHATSAPP", status: "HUMAN", snoozedUntil: null, controlledById: "user-1", connectorId: null, connector: null,
+    unreadCount: 0, lastInboundAt: hace3h,
+    contact: { id: `ct-${id}`, firstName: "Ana", lastName: id, assignedToId: null, targetPlaza: null },
+  });
+  /** La consulta de esperando es la única que filtra por status HUMAN con AND. */
+  const llamadaEspera = () => conversationFindMany.mock.calls.map((c) => c[0]).find((a) => a?.where?.AND);
+
+  it("con unreadCount 0 y último mensaje INBOUND sí aparece, con el tiempo que lleva", async () => {
+    conversationFindMany.mockImplementation(async (a: { where?: { AND?: unknown } }) => (a?.where?.AND ? [conv("c1")] : []));
+    messageGroupBy.mockResolvedValue([{ conversationId: "c1", direction: "INBOUND", _max: { createdAt: hace3h } }]);
+
+    const v = await getTodayView("user-1", "ASESOR");
+
+    expect(v.esperandoRespuesta.count).toBe(1);
+    expect(v.esperandoRespuesta.items[0]).toMatchObject({ id: "c1", href: "/inbox?c=c1", meta: "escribió hace 3 h" });
+    // Sin filtro por unreadCount ni umbral de tiempo; solo lo mío y contactos vivos.
+    const where = JSON.stringify(llamadaEspera()!.where);
+    expect(where).not.toContain("unreadCount");
+    expect(where).toContain('"controlledById":"user-1"');
+    expect(where).toContain('"deletedAt":null');
+  });
+
+  it("si ya contestamos (último saliente) no aparece", async () => {
+    conversationFindMany.mockImplementation(async (a: { where?: { AND?: unknown } }) => (a?.where?.AND ? [conv("c1")] : []));
+    messageGroupBy.mockResolvedValue([
+      { conversationId: "c1", direction: "INBOUND", _max: { createdAt: hace3h } },
+      { conversationId: "c1", direction: "OUTBOUND", _max: { createdAt: new Date(hace3h.getTime() + 60000) } },
+    ]);
+    const v = await getTodayView("user-1", "ASESOR");
+    expect(v.esperandoRespuesta.count).toBe(0);
   });
 });

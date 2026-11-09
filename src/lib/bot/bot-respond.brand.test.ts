@@ -399,6 +399,90 @@ describe("botRespond — cuenta con marca", () => {
   });
 });
 
+// #989 (2026-11-09): leads de Yaxnáh con nombre, WhatsApp y crédito se quedaban en modo bot. Al
+// completar el guion de la marca, el bot le dice al cliente que un asesor lo contacta y el hilo
+// pasa al asesor con aviso.
+describe("botRespond — guion de la marca completo (#989)", () => {
+  function conGuionDeMarca(resultado: Record<string, unknown>) {
+    withBrand({ ...YAX, playbookId: "pb-yax" });
+    botPlaybookFindFirstMock.mockResolvedValue({ id: "pb-yax", tasks: [{ id: "t1", order: 1, key: "telefono" }] });
+    runPlaybookStepMock.mockResolvedValue(resultado);
+  }
+
+  it("18. se completa en este turno → contesta con el cierre y pasa al asesor UNA vez", async () => {
+    conGuionDeMarca({ objective: "COMPLETO", status: "COMPLETED", recienCompletado: true });
+
+    const ok = await botRespond("c1", { connectorId: "c-yax" });
+
+    expect(ok).toBe(true);
+    expect(sendChannelMessage).toHaveBeenCalledTimes(1);
+    const objective = buildSystemPromptMock.mock.calls[0][0].objective as string;
+    expect(objective).toContain("un asesor de Yaxnáh Caucel lo va a contactar por WhatsApp");
+    expect(escalations()).toHaveLength(1);
+    expect(notificationCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ userId: "u-owner", type: "bot_escalation" }) }),
+    );
+  });
+
+  it("18b. guion en curso → no pasa al asesor", async () => {
+    conGuionDeMarca({ objective: "PIDE EL WHATSAPP", status: "IN_PROGRESS" });
+
+    await botRespond("c1", { connectorId: "c-yax" });
+
+    expect(escalations()).toHaveLength(0);
+    expect(buildSystemPromptMock.mock.calls[0][0].objective).toBe("PIDE EL WHATSAPP");
+  });
+
+  it("18c. completo desde antes (no en este turno) → no vuelve a pasar el hilo", async () => {
+    conGuionDeMarca({ objective: "COMPLETO", status: "COMPLETED" });
+
+    await botRespond("c1", { connectorId: "c-yax" });
+
+    expect(escalations()).toHaveLength(0);
+  });
+
+  it("18d. si además trae [ESCALAR], escala una sola vez (no dos)", async () => {
+    conGuionDeMarca({ objective: "COMPLETO", status: "COMPLETED", recienCompletado: true });
+    askClaude.mockResolvedValue("Te paso con tu asesor [ESCALAR]");
+
+    await botRespond("c1", { connectorId: "c-yax" });
+
+    expect(escalations()).toHaveLength(1);
+  });
+
+  it("18e. llegó otro mensaje mientras generaba → no envía, pero el hilo SÍ pasa al asesor", async () => {
+    conGuionDeMarca({ objective: "COMPLETO", status: "COMPLETED", recienCompletado: true });
+    const { default: db } = await import("@/lib/db");
+    (db.message.findFirst as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: "nuevo" });
+
+    const ok = await botRespond("c1", { connectorId: "c-yax" });
+
+    expect(ok).toBe(false);
+    expect(sendChannelMessage).not.toHaveBeenCalled();
+    expect(escalations()).toHaveLength(1);
+  });
+
+  it("18f. sin marca, completar el guion global NO pasa el hilo (sin cambio)", async () => {
+    botConfig.activePlaybookId = "pb-global";
+    convFindFirst.mockResolvedValue({ id: "conv1", status: "BOT", botEnabled: true, connectorId: null });
+    botPlaybookFindFirstMock.mockResolvedValue({ id: "pb-global", tasks: [{ id: "t1", order: 1 }] });
+    runPlaybookStepMock.mockResolvedValue({ objective: "COMPLETO", status: "COMPLETED", recienCompletado: true });
+
+    await botRespond("c1");
+
+    expect(escalations()).toHaveLength(0);
+    expect(buildSystemPromptMock.mock.calls[0][0].objective).toBe("COMPLETO");
+  });
+
+  it("18g. el prompt recibe teléfono y correo del contacto", async () => {
+    withBrand();
+
+    await botRespond("c1", { connectorId: "c-yax" });
+
+    expect(buildSystemPromptMock.mock.calls[0][0].contact).toMatchObject({ phone: "+5212345", email: null });
+  });
+});
+
 describe("botRespond — la conversación y la marca salen de la misma cuenta", () => {
   const CONV_PROP = { id: "conv-p", status: "BOT", botEnabled: true, connectorId: "c-prop" };
   /** Búsqueda de conversación falsa: con `connectorId` en el where → solo el hilo de esa cuenta

@@ -38,7 +38,12 @@ export async function runPlaybookStep(
      */
     ignoreForeignState?: boolean;
   },
-): Promise<{ objective?: string; status: PlaybookRunStatus }> {
+): Promise<{
+  objective?: string;
+  status: PlaybookRunStatus;
+  /** #989: el guion se completó EN ESTE turno (no estaba completo antes). Solo viene en true. */
+  recienCompletado?: true;
+}> {
   try {
     const { playbook, conversationId, contact, messages, model, ignoreForeignState } = args;
     const tasks = playbook.tasks;
@@ -140,11 +145,14 @@ export async function runPlaybookStep(
       return { objective, status: "IN_PROGRESS" };
     }
 
+    const yaEstabaCompleto = (state as { status?: string }).status === "COMPLETED";
     await db.conversationPlaybookState.update({
       where: { conversationId },
       data: { status: "COMPLETED", completedAt: new Date(), currentTaskKey: null },
     });
-    return { objective: COMPLETION_OBJECTIVE, status: "COMPLETED" };
+    return yaEstabaCompleto
+      ? { objective: COMPLETION_OBJECTIVE, status: "COMPLETED" }
+      : { objective: COMPLETION_OBJECTIVE, status: "COMPLETED", recienCompletado: true };
   } catch {
     // Defensivo: cualquier fallo cae al objective de la ruta A (§ ver bot-respond.ts).
     return { objective: undefined, status: "IN_PROGRESS" };

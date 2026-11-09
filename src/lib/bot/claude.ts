@@ -5,6 +5,7 @@ import { getTonePreset } from "./tone-presets";
 import { catalogBrief } from "./hub-catalog";
 import { ESCALATE_MARKETING_TOKEN } from "./marketing-routing";
 import { resolveBotModel } from "./model";
+import { isPlaceholderFirstName } from "@/lib/messaging/lead-form-summary";
 
 const API_URL = "https://api.anthropic.com/v1/messages";
 
@@ -327,21 +328,83 @@ export function buildBrandRules(config: BotConfigResolved, brand?: BrandPromptIn
     // BUG 2026-07-24: el "Idioma: ES" del perfil (default del intake) le ganaba a esta
     // regla y el bot contestaba en español a mensajes en inglés. El último mensaje manda.
     brandAlwaysSpanish(brand) ? SPANISH_ONLY_RULE : FOLLOW_CLIENT_LANGUAGE_RULE,
-    `Mensajes cortos, estilo WhatsApp (máx ~${config.maxLines} líneas).`,
+    `Mensajes cortos, estilo WhatsApp (máx ~${config.maxLines} líneas): contesta lo que preguntó y avanza un paso; no sueltes toda la información de golpe.`,
     "En WhatsApp la negrita se escribe con UN solo asterisco (*así*). NUNCA uses sintaxis markdown: ni doble asterisco (**negrita**) ni encabezados con #.",
-    "Nunca digas que eres una IA salvo pregunta directa; entonces sé honesto.",
+    ...CONVERSATION_RULES,
+    ...(brand ? [brandHandoffRule(brand.name)] : []),
   ].join("\n");
+}
+
+/**
+ * Reglas de conversación (#989, 2026-11-09). Salieron de conversaciones reales:
+ * - Propyte por Instagram: el cliente escribió «el otro mejor bull_caribbean» y luego «es un bot»;
+ *   el bot repitió palabra por palabra la misma pregunta de zona con la misma lista de cinco
+ *   ciudades, y no ofreció pasarlo con una persona.
+ * - Yaxnáh: el bot volvía a saludar («¡Hola, Santiago!») a media conversación y cerraba mensajes
+ *   con información sin pregunta, así que la plática se quedaba ahí.
+ * Aplican con y sin marca. La de «¿eres un bot?» reemplaza a la línea de antes («Nunca digas que
+ * eres una IA salvo pregunta directa; entonces sé honesto»), que no decía qué hacer después.
+ */
+const CONVERSATION_RULES: readonly string[] = [
+  "Saluda solo en tu primer mensaje de la conversación. En los siguientes no vuelvas a decir «hola» ni a presentarte.",
+  "Nunca repitas una pregunta con las mismas palabras. Si el cliente no la contestó o cambió de tema, atiende primero lo que dijo; si todavía necesitas ese dato, pídelo de otra forma y más fácil (por ejemplo, con dos opciones en vez de una lista larga). Si ya lo preguntaste dos veces sin respuesta, déjalo y ofrece que un asesor lo contacte.",
+  "Termina cada mensaje con UNA sola pregunta o un siguiente paso concreto. Nunca cierres solo con información ni con dos preguntas a la vez.",
+  "Si menciona otra inmobiliaria, otro desarrollo, otra cuenta o un nombre o @usuario que no conoces, no supongas qué es, no lo critiques ni lo compares: pregúntale qué le gustó o qué está buscando y ofrécele lo que sí tienes.",
+  "Si no entiendes el mensaje, pide que te lo aclare con una frase corta, sin suponer.",
+  "Nunca digas que eres una IA si no te lo preguntan. Si te pregunta si eres un bot o una persona, sé honesto: eres el asistente virtual y hay asesores de carne y hueso; ofrécele en ese momento que uno lo contacte, en lugar de repetir lo que le estabas preguntando. Si acepta, es intención fuerte.",
+];
+
+/**
+ * Con marca: qué tiene que conseguir el bot antes de soltar la conversación (#989). El bot de
+ * Yaxnáh contestaba dudas pero casi nunca pedía el WhatsApp, y en Instagram/Messenger sin ese dato
+ * el asesor no tiene cómo buscar al cliente: la plática moría en el chat.
+ */
+function brandHandoffRule(brandName: string): string {
+  return `Tu trabajo es que un asesor de ${brandName} pueda contactar al cliente. Si todavía no tenemos su WhatsApp, pídeselo con naturalidad en cuanto muestre interés (precio, modelos, crédito o visita), después de contestar su duda. Si ya lo tenemos, no lo vuelvas a pedir.`;
 }
 
 const DEFAULT_OBJECTIVE =
   "Saluda y avanza en calificar (zona, presupuesto, plazo) con una sola pregunta a la vez.";
+
+/**
+ * Objetivo por defecto con marca (#989). El de arriba es de Propyte: pide «zona» (las marcas
+ * tienen un solo lugar) y empieza con «Saluda», que el bot de Yaxnáh obedecía en cada turno. Se
+ * usa cuando la marca no tiene guion propio o el guion no dio paso.
+ */
+export const BRAND_DEFAULT_OBJECTIVE =
+  "Contesta lo que pregunta el cliente y avanza, con una sola pregunta a la vez, hacia lo que necesita el asesor: su nombre, su WhatsApp (si aún no lo tenemos), cómo piensa pagar y qué busca. Con eso, propón agendar una visita o una llamada con un asesor.";
+
+/**
+ * La línea del cliente en el prompt. El alta de Instagram/Messenger pone «Messenger», «Instagram»
+ * o el @usuario cuando el canal no da un nombre real, y el bot saludaba «¡Hola, Messenger!» (#989).
+ */
+function clientLine(
+  contact: { firstName: string; preferredLanguage: string; phone?: string | null; email?: string | null },
+  brand?: BrandPromptInput,
+): string {
+  const nombre = isPlaceholderFirstName(contact.firstName)
+    ? "todavía no sabes su nombre (el de su perfil no es un nombre real: no lo llames así); pregúntaselo con naturalidad"
+    : contact.firstName;
+  const idioma = brandAlwaysSpanish(brand)
+    ? "Contesta en español."
+    : `Idioma registrado: ${contact.preferredLanguage} (solo referencia — responde en el idioma del último mensaje del cliente)`;
+  const lines = [`Cliente: ${nombre} · ${idioma}`];
+  // Solo si quien llama mandó el dato (undefined = no se sabe; los agentes de fondo no lo mandan).
+  if (contact.phone !== undefined) {
+    const tel = contact.phone?.trim() ? "sí" : "NO";
+    const correo = contact.email?.trim() ? "sí" : "no";
+    lines.push(`Datos que ya tenemos en su ficha: WhatsApp/teléfono: ${tel} · correo: ${correo}. No pidas lo que ya tenemos.`);
+  }
+  return lines.join("\n");
+}
 
 // contact/catalog son opcionales: el runner de agentes de fondo (Agent Studio) no
 // habla con UN cliente en una conversación 1:1 — opera cross-contact vía tools — así
 // que arma marca+tono+objetivo sin esos bloques (ver src/lib/agents/runner.ts).
 export function buildSystemPrompt(args: {
   config: BotConfigResolved;
-  contact?: { firstName: string; preferredLanguage: string };
+  /** `phone`/`email`: opcionales; si se mandan (aunque vacíos), el prompt dice qué datos ya tenemos. */
+  contact?: { firstName: string; preferredLanguage: string; phone?: string | null; email?: string | null };
   catalog?: Parameters<typeof catalogBrief>[0];
   objective?: string;
   brand?: BrandPromptInput;
@@ -369,16 +432,12 @@ export function buildSystemPrompt(args: {
   if (brand?.knowledge?.trim()) {
     parts.push(`\nInformación oficial de ${brand.name} (puedes citarla; lo que no esté aquí ni en el catálogo, no lo inventes):\n${brand.knowledge.trim()}`);
   }
-  parts.push(`\nObjetivo ahora: ${args.objective ?? DEFAULT_OBJECTIVE}`);
+  parts.push(`\nObjetivo ahora: ${args.objective ?? (brand ? BRAND_DEFAULT_OBJECTIVE : DEFAULT_OBJECTIVE)}`);
   if (contact) {
     // "registrado" + "solo referencia": el preferredLanguage suele ser el default ES del
     // intake, no una elección del cliente — no debe leerse como directiva de idioma.
     // Con idioma fijo de la marca, el registrado no se menciona: no debe abrir la puerta a otro idioma.
-    parts.push(
-      brandAlwaysSpanish(brand)
-        ? `\nCliente: ${contact.firstName} · Contesta en español.`
-        : `\nCliente: ${contact.firstName} · Idioma registrado: ${contact.preferredLanguage} (solo referencia — responde en el idioma del último mensaje del cliente)`
-    );
+    parts.push(`\n${clientLine(contact, brand)}`);
   }
   parts.push(`\n${catalogBlock}`);
 

@@ -27,6 +27,7 @@ import { brandEnabledChannels } from "@/lib/brands/settings";
 import { resolveActorUserId } from "@/lib/users/actor-sistema";
 import { isAdvisorLine } from "@/lib/whatsapp/coex/advisor-line";
 import { esAgenteReclutamiento, hookReclutamiento } from "@/lib/reclutamiento/hook";
+import { isPlaceholderFirstName } from "@/lib/messaging/lead-form-summary";
 
 /**
  * `enabledChannelsOverride` (2026-10-09, marcas del agente): los canales propios de la marca
@@ -51,7 +52,21 @@ export function buildOpener(
   if (config.openerStyle === "DIRECT") {
     return `Este es el primer mensaje. Preséntate breve y haz UNA pregunta para empezar a calificar (${interes}).${goalLine} No suenes a script.`;
   }
-  return `Este es el primer mensaje. Saluda a ${contact.firstName} por su nombre de forma cálida y natural, menciona brevemente su interés (${interes}) si lo conoces, y haz UNA pregunta para empezar a calificar.${goalLine} No suenes a script.`;
+  // #989: «Messenger»/«Instagram»/@usuario no son nombres; el bot saludaba «¡Hola, Messenger!».
+  const saludo = isPlaceholderFirstName(contact.firstName)
+    ? "Saluda de forma cálida y natural (todavía no sabes su nombre: no uses el de su perfil)"
+    : `Saluda a ${contact.firstName} por su nombre de forma cálida y natural`;
+  return `Este es el primer mensaje. ${saludo}, menciona brevemente su interés (${interes}) si lo conoces, y haz UNA pregunta para empezar a calificar.${goalLine} No suenes a script.`;
+}
+
+/**
+ * Con marca, cuando su guion termina de reunir los datos (#989). Antes el bot proponía la visita
+ * y la conversación se quedaba en modo bot: si el cliente ya no contestaba, nadie se enteraba de
+ * que había un lead con nombre, WhatsApp y forma de pago listo para llamarle. Ahora el bot le dice
+ * que un asesor lo va a contactar y la conversación pasa al asesor con aviso (escalateToHuman).
+ */
+export function brandCompletionObjective(brandName: string): string {
+  return `Ya tienes los datos que necesita el asesor. Agradécele, contesta si hizo alguna pregunta y dile que un asesor de ${brandName} lo va a contactar por WhatsApp para agendar su visita o llamada. No hagas más preguntas de calificación.`;
 }
 
 export async function escalateToHuman(
@@ -502,6 +517,8 @@ export async function botRespond(
   const brandPlaybookId = brand?.playbookId ?? null;
   const useGlobalPlaybook = !brand && !agentProfile && !!config.activePlaybookId;
   let playbookObjective: string | undefined;
+  // #989: el guion de la marca terminó en este turno → al final, la conversación pasa al asesor.
+  let brandPlaybookDone = false;
   if (agentPlaybook || useGlobalPlaybook || brandPlaybookId) {
     try {
       const pb = agentPlaybook
@@ -522,6 +539,10 @@ export async function botRespond(
           ...(brand ? { ignoreForeignState: true } : {}),
         });
         if (pr.objective) playbookObjective = pr.objective;
+        if (brand && pr.recienCompletado) {
+          brandPlaybookDone = true;
+          playbookObjective = brandCompletionObjective(brand.name);
+        }
         // Reclutamiento (spec 2026-11-02): al terminar el guion se evalúa al candidato y el
         // cierre reemplaza al objetivo genérico; mientras sigue, se suma la ficha de la vacante.
         // Solo con el guion nuevo (tiene actitud_3): si el playbook sembrado sigue siendo el viejo
@@ -562,7 +583,14 @@ export async function botRespond(
     : undefined;
   const system = buildSystemPrompt({
     config: effectiveConfig,
-    contact: { firstName: contact.firstName, preferredLanguage: contact.preferredLanguage },
+    // phone/email (#989): el prompt dice qué datos ya tenemos, para que pida el WhatsApp si falta
+    // (Instagram/Messenger) y no lo vuelva a pedir si ya está (formularios, WhatsApp).
+    contact: {
+      firstName: contact.firstName,
+      preferredLanguage: contact.preferredLanguage,
+      phone: contact.phone ?? null,
+      email: contact.email ?? null,
+    },
     catalog,
     objective,
     ...(brandPrompt ? { brand: brandPrompt } : {}),
@@ -596,7 +624,12 @@ export async function botRespond(
     },
     select: { id: true },
   });
-  if (newer) return false;
+  if (newer) {
+    // #989: el guion de la marca ya quedó COMPLETO en la base; la corrida que conteste el mensaje
+    // nuevo ya no lo verá «recién completado» y nadie pasaría el hilo al asesor. Se pasa aquí.
+    if (brandPlaybookDone) await escalateToHuman(conv.id, brandHandoffReason(brand!.name));
+    return false;
+  }
 
   const shouldEscalateMarketing = reply.includes(ESCALATE_MARKETING_TOKEN);
   const shouldEscalate = reply.includes(ESCALATE_TOKEN);
@@ -614,7 +647,7 @@ export async function botRespond(
     // La respuesta traía solo los tokens: el cliente no recibe nada, aunque el hilo sí pase a
     // un humano. Sin ningún token (solo espacios; askClaude ya recorta, así que no debería
     // pasar) nadie se enteraría → `false`: antes devolvía `true` sin haber enviado nada.
-    const escalates = shouldEscalate || shouldEscalateMarketing;
+    const escalates = shouldEscalate || shouldEscalateMarketing || brandPlaybookDone;
     await noteSilence(
       `la respuesta de la IA quedó vacía al quitarle las marcas internas (${ESCALATE_TOKEN} / ${ESCALATE_MARKETING_TOKEN})` +
         (escalates ? "; la conversación pasa a un humano." : "."),
@@ -675,6 +708,12 @@ export async function botRespond(
     });
   } else if (shouldEscalate) {
     await escalateToHuman(conv.id, "Intención fuerte detectada por el bot");
+  } else if (brandPlaybookDone) {
+    await escalateToHuman(conv.id, brandHandoffReason(brand!.name));
   }
   return true;
+}
+
+function brandHandoffReason(brandName: string): string {
+  return `El bot de ${brandName} ya reunió los datos del cliente (nombre, WhatsApp y lo que busca): falta que un asesor lo contacte para agendar visita o llamada`;
 }

@@ -281,3 +281,44 @@ describe("runPlaybookStep — respuesta que no se pudo registrar (prueba recluta
     expect(r.objective).toBe("siguiente objetivo");
   });
 });
+
+// #989: botRespond pasa el hilo al asesor cuando el guion de una marca se completa. Tiene que
+// saber si se completó EN ESTE turno, para no pasarlo otra vez en cada mensaje posterior.
+describe("runPlaybookStep — recienCompletado (#989)", () => {
+  function dbConEstado(status: string) {
+    const db = makeDb([]);
+    db.conversationPlaybookState.upsert = vi.fn(async () => ({ id: "s", playbookId: "pb", status, completedTaskKeys: [] }));
+    return db;
+  }
+  const correr = (db: ReturnType<typeof makeDb>) =>
+    runPlaybookStep(db as never, {
+      playbook: { id: "pb", tasks: [phoneTask] },
+      conversationId: "conv1",
+      contact: { id: "contact1" },
+      messages: [{ role: "user", content: "9982144097" }],
+      model: "m",
+    });
+
+  it("estaba en curso y ya no queda tarea → COMPLETED con recienCompletado", async () => {
+    extractFields.mockResolvedValue({});
+    nextTask.mockReturnValue(null);
+    const r = await correr(dbConEstado("IN_PROGRESS"));
+    expect(r).toMatchObject({ status: "COMPLETED", recienCompletado: true });
+  });
+
+  it("ya estaba COMPLETED → sin recienCompletado", async () => {
+    extractFields.mockResolvedValue({});
+    nextTask.mockReturnValue(null);
+    const r = await correr(dbConEstado("COMPLETED"));
+    expect(r.status).toBe("COMPLETED");
+    expect(r).not.toHaveProperty("recienCompletado");
+  });
+
+  it("queda tarea pendiente → sin recienCompletado", async () => {
+    extractFields.mockResolvedValue({});
+    nextTask.mockReturnValue(phoneTask);
+    const r = await correr(dbConEstado("IN_PROGRESS"));
+    expect(r.status).toBe("IN_PROGRESS");
+    expect(r).not.toHaveProperty("recienCompletado");
+  });
+});

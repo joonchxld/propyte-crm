@@ -3,6 +3,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/twilio/client", () => ({
   validateTwilioSignature: vi.fn(async () => true),
 }));
+const handleCallStatus = vi.fn(async () => {});
+vi.mock("@/lib/twilio/voice", () => ({ handleCallStatus: (...a: unknown[]) => handleCallStatus(...(a as [])) }));
 
 import { POST } from "./route";
 
@@ -62,5 +64,21 @@ describe("voice/dial-action", () => {
     ).mockResolvedValueOnce(false);
     const res = await POST(formReq({ DialCallStatus: "no-answer" }));
     expect(res.status).toBe(403);
+  });
+});
+
+describe("voice/dial-action cierra la actividad de la entrante", () => {
+  it("contestada: completa con la duración del tramo del asesor", async () => {
+    await POST(formReq({ CallSid: "CApadre", DialCallStatus: "completed", DialCallDuration: "42" }));
+    expect(handleCallStatus).toHaveBeenCalledWith(expect.objectContaining({ CallSid: "CApadre", CallStatus: "completed", CallDuration: "42" }));
+  });
+  it("cancelada (el cliente colgó timbrando) cuenta como no contestada", async () => {
+    await POST(formReq({ CallSid: "CApadre", DialCallStatus: "canceled" }));
+    expect(handleCallStatus).toHaveBeenCalledWith(expect.objectContaining({ CallStatus: "no-answer" }));
+  });
+  it("si cerrar la actividad falla, igual manda al buzón", async () => {
+    handleCallStatus.mockRejectedValueOnce(new Error("bd caída"));
+    const xml = await (await POST(formReq({ CallSid: "CApadre", DialCallStatus: "busy" }))).text();
+    expect(xml).toContain("<Record");
   });
 });

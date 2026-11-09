@@ -16,7 +16,7 @@ beforeEach(() => { [findContactByPhone, captureLead, create].forEach(m => m.mock
 
 describe("voice/incoming", () => {
   it("contacto conocido con asesor → Dial al Client del asesor + crea Activity CALL_INBOUND; sin buzón en este TwiML", async () => {
-    findContactByPhone.mockResolvedValue({ id: "c1", assignedToId: "u1" });
+    findContactByPhone.mockResolvedValue({ id: "c1", assignedToId: "u1", firstName: "Ana", lastName: "Pérez & Co" });
     const res = await POST(formReq({ CallSid: "CA9", From: "+529991112233", To: "+52..." }));
     const xml = await res.text();
     expect(create).toHaveBeenCalledWith(
@@ -29,8 +29,12 @@ describe("voice/incoming", () => {
         }),
       })
     );
-    expect(xml).toContain("<Client>u1</Client>");
-    expect(xml).toContain("dial-action");
+    expect(xml).toContain("<Client>u1<Parameter");
+    expect(xml).toContain('<Parameter name="contactId" value="c1" />');
+    expect(xml).toContain('<Parameter name="nombre" value="Ana Pérez &amp; Co" />');
+    expect(xml).toContain('<Parameter name="esNuevo" value="0" />');
+    expect(xml).toContain('timeout="20"');
+    expect(xml).toMatch(/action="[^"]*\/voice\/dial-action"/);
     expect(xml).not.toContain("<Record");
   });
   it("desconocido → captureLead LLAMADA_ENTRANTE y va a buzón si no hay asesor; NO crea Activity", async () => {
@@ -61,5 +65,14 @@ describe("voice/incoming", () => {
     (validateTwilioSignature as unknown as { mockResolvedValueOnce: (v: boolean) => void }).mockResolvedValueOnce(false);
     const res = await POST(formReq({ CallSid: "CA9", From: "+52", To: "+52" }));
     expect(res.status).toBe(403);
+  });
+  it("número nuevo con asesor → esNuevo=1 y nombre vacío", async () => {
+    findContactByPhone.mockResolvedValue(null);
+    captureLead.mockResolvedValue({ contactId: "c3", isNew: true, assignedToId: "u2" });
+    const res = await POST(formReq({ CallSid: "CA12", From: "+521000000002", To: "+52..." }));
+    const xml = await res.text();
+    expect(xml).toContain("<Client>u2<Parameter");
+    expect(xml).toContain('<Parameter name="nombre" value="" />');
+    expect(xml).toContain('<Parameter name="esNuevo" value="1" />');
   });
 });

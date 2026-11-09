@@ -1,13 +1,26 @@
 "use client";
-import { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useReducer, useRef, useState, useCallback } from "react";
+import Link from "next/link";
+import { Phone, PhoneOff } from "lucide-react";
 import { Device } from "@twilio/voice-sdk";
 import type { Call } from "@twilio/voice-sdk";
 
-type CallState = "idle" | "connecting" | "ringing" | "in-call";
+import {
+  ESTADO_INICIAL,
+  datosDeLlamante,
+  etiquetaLlamante,
+  voiceReducer,
+  type CallState,
+  type DatosEntrante,
+} from "./call-state";
+
 interface VoiceCtx {
   ready: boolean;
   state: CallState;
   activeContactId: string | null;
+  incoming: DatosEntrante | null;
+  answer: () => void;
+  reject: () => void;
   startCall: (to: string, contactId: string, userId: string) => Promise<void>;
   hangup: () => void;
 }
@@ -43,8 +56,13 @@ export function VoiceDeviceProvider({ userId, children }: { userId?: string; chi
   const deviceRef = useRef<Device | null>(null);
   const callRef = useRef<Call | null>(null);
   const [ready, setReady] = useState(false);
-  const [state, setState] = useState<CallState>("idle");
-  const [activeContactId, setActiveContactId] = useState<string | null>(null);
+  const [vs, dispatch] = useReducer(voiceReducer, ESTADO_INICIAL);
+  const notifRef = useRef<Notification | null>(null);
+
+  const cerrarNotificacion = useCallback(() => {
+    notifRef.current?.close();
+    notifRef.current = null;
+  }, []);
 
   useEffect(() => {
     if (!userId) return;
@@ -109,10 +127,50 @@ export function VoiceDeviceProvider({ userId, children }: { userId?: string; chi
         if (!cancelled) setReady(false);
       });
       device.on("incoming", (call: Call) => {
+        // Ya hay una llamada en curso o timbrando en esta pestaña: no se pisa; las demás pestañas
+        // (o el buzón, tras 20 s) la atienden.
+        if (callRef.current) {
+          call.ignore();
+          return;
+        }
         callRef.current = call;
-        call.on("disconnect", () => { setState("idle"); callRef.current = null; });
-        call.accept();
-        setState("in-call");
+        const datos = datosDeLlamante(call.customParameters, call.parameters);
+        dispatch({ type: "incoming", datos });
+        // El timbre lo reproduce el propio SDK (sonido "incoming", activo por defecto); si el
+        // navegador bloquea el audio sin interacción, el SDK lo registra y no rompe nada.
+        // Con la pestaña oculta y permiso ya concedido, aviso del sistema (no se pide permiso aquí).
+        try {
+          if (
+            typeof document !== "undefined" &&
+            document.visibilityState !== "visible" &&
+            typeof Notification !== "undefined" &&
+            Notification.permission === "granted"
+          ) {
+            notifRef.current?.close();
+            const n = new Notification(`Llamada entrante de ${etiquetaLlamante(datos)}`, {
+              tag: "llamada-entrante",
+              requireInteraction: true,
+            });
+            n.onclick = () => {
+              window.focus();
+              n.close();
+            };
+            notifRef.current = n;
+          }
+        } catch {
+          /* notificaciones no disponibles: solo timbre */
+        }
+        const terminar = (tipo: "cancel" | "disconnect") => {
+          if (callRef.current === call) callRef.current = null;
+          notifRef.current?.close();
+          notifRef.current = null;
+          dispatch({ type: tipo });
+        };
+        // "cancel": el llamante colgó antes de contestar, o OTRA pestaña/dispositivo contestó
+        // (Twilio cancela las demás patas <Client> del mismo identity; el SDK emite "cancel").
+        call.on("cancel", () => terminar("cancel"));
+        call.on("disconnect", () => terminar("disconnect"));
+        call.on("error", () => terminar("disconnect"));
       });
 
       try {
@@ -128,22 +186,85 @@ export function VoiceDeviceProvider({ userId, children }: { userId?: string; chi
       device?.destroy();
       device = null;
       deviceRef.current = null;
+      callRef.current = null;
+      notifRef.current?.close();
+      notifRef.current = null;
       setReady(false);
     };
   }, [userId]);
 
   const startCall = useCallback(async (to: string, contactId: string, uid: string) => {
     if (!deviceRef.current) return;
-    setState("connecting"); setActiveContactId(contactId);
-    const call = await deviceRef.current.connect({ params: { To: to, contactId, userId: uid } });
-    callRef.current = call;
-    call.on("accept", () => setState("in-call"));
-    call.on("ringing", () => setState("ringing"));
-    call.on("disconnect", () => { setState("idle"); setActiveContactId(null); callRef.current = null; });
-    call.on("error", () => { setState("idle"); setActiveContactId(null); });
+    dispatch({ type: "dial", contactId });
+    try {
+      const call = await deviceRef.current.connect({ params: { To: to, contactId, userId: uid } });
+      callRef.current = call;
+      call.on("accept", () => dispatch({ type: "outbound-accept" }));
+      call.on("ringing", () => dispatch({ type: "outbound-ringing" }));
+      call.on("disconnect", () => { dispatch({ type: "disconnect" }); callRef.current = null; });
+      call.on("cancel", () => { dispatch({ type: "disconnect" }); callRef.current = null; });
+      call.on("error", () => dispatch({ type: "error" }));
+    } catch {
+      dispatch({ type: "error" });
+    }
   }, []);
 
-  const hangup = useCallback(() => { callRef.current?.disconnect(); setState("idle"); setActiveContactId(null); }, []);
+  const hangup = useCallback(() => {
+    callRef.current?.disconnect();
+    dispatch({ type: "disconnect" });
+  }, []);
 
-  return <Ctx.Provider value={{ ready, state, activeContactId, startCall, hangup }}>{children}</Ctx.Provider>;
+  const answer = useCallback(() => {
+    const call = callRef.current;
+    if (!call) return;
+    cerrarNotificacion();
+    call.accept();
+    dispatch({ type: "accept" });
+  }, [cerrarNotificacion]);
+
+  // call.reject() hace que el <Dial> padre termine con DialCallStatus busy/no-answer
+  // (docs de Twilio Voice SDK) → dial-action manda al llamante al buzón.
+  const reject = useCallback(() => {
+    const call = callRef.current;
+    if (!call) return;
+    cerrarNotificacion();
+    call.reject();
+    callRef.current = null;
+    dispatch({ type: "reject" });
+  }, [cerrarNotificacion]);
+
+  const { state, activeContactId, incoming } = vs;
+  return (
+    <Ctx.Provider value={{ ready, state, activeContactId, incoming, answer, reject, startCall, hangup }}>
+      {children}
+      {state === "incoming" && incoming && (
+        <div
+          role="alertdialog"
+          aria-label="Llamada entrante"
+          className="fixed bottom-6 right-6 z-[100] w-80 rounded-xl border bg-white p-4 shadow-2xl"
+        >
+          <p className="text-[12px] font-medium uppercase tracking-wide text-gray-500">Llamada entrante</p>
+          <p className="mt-1 text-[16px] font-semibold text-gray-900">
+            {incoming.esNuevo ? "Número nuevo" : etiquetaLlamante(incoming)}
+          </p>
+          {(incoming.nombre || incoming.esNuevo) && incoming.telefono && (
+            <p className="text-[13px] text-gray-600">{incoming.telefono}</p>
+          )}
+          {incoming.contactId && !incoming.esNuevo && (
+            <Link href={`/contacts/${incoming.contactId}`} className="mt-1 inline-block text-[12px] text-blue-600 underline">
+              Ver contacto
+            </Link>
+          )}
+          <div className="mt-3 flex gap-2">
+            <button className="btn-secondary flex-1 text-[13px]" onClick={reject}>
+              <PhoneOff className="h-3.5 w-3.5" /> Rechazar
+            </button>
+            <button className="btn-primary flex-1 text-[13px]" onClick={answer}>
+              <Phone className="h-3.5 w-3.5" /> Contestar
+            </button>
+          </div>
+        </div>
+      )}
+    </Ctx.Provider>
+  );
 }

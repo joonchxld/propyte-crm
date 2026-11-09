@@ -1,13 +1,11 @@
 // Tras el <Dial> de una entrante: si el asesor contestó, cuelga limpio;
-// si no contestó (no-answer/busy/failed), envía a buzón grabado.
+// si no contestó o rechazó (no-answer/busy/failed/canceled), envía a buzón grabado.
 import { NextRequest, NextResponse } from "next/server";
 import { validateTwilioSignature } from "@/lib/twilio/client";
+import { envolverRespuesta, twimlTrasDial } from "@/lib/twilio/twiml-voz";
 
 function xml(body: string) {
-  return new NextResponse(
-    `<?xml version="1.0" encoding="UTF-8"?>\n<Response>${body}</Response>`,
-    { headers: { "Content-Type": "text/xml" } }
-  );
+  return new NextResponse(envolverRespuesta(body), { headers: { "Content-Type": "text/xml" } });
 }
 
 export async function POST(req: NextRequest) {
@@ -25,24 +23,6 @@ export async function POST(req: NextRequest) {
     return new NextResponse("Firma inválida", { status: 403 });
   }
 
-  // Si la llamada al asesor fue contestada, no hacer nada más (la llamada ya terminó).
-  if (
-    params.DialCallStatus === "completed" ||
-    params.DialCallStatus === "answered"
-  ) {
-    return xml("");
-  }
-
-  // No contestó → buzón grabado.
-  const recordingCb = `${appUrl}/api/webhooks/twilio/voice/recording`
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
-
-  return xml(
-    `<Say language="es-MX">En este momento no podemos atenderte. Deja tu mensaje después del tono.</Say>` +
-      `<Record maxLength="120" recordingStatusCallback="${recordingCb}" />`
-  );
+  // contestada → colgar; no-answer/busy/failed/canceled (incl. rechazo del asesor) → buzón.
+  return xml(twimlTrasDial(params.DialCallStatus, appUrl));
 }

@@ -4,21 +4,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { validateTwilioSignature } from "@/lib/twilio/client";
 import { findContactByPhone } from "@/lib/twilio/utils";
-
-function escapeXml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
-}
+import {
+  buzonTwiml,
+  envolverRespuesta,
+  escapeXml,
+  parametrosLlamanteTwiml,
+} from "@/lib/twilio/twiml-voz";
 
 function xml(body: string) {
-  return new NextResponse(
-    `<?xml version="1.0" encoding="UTF-8"?>\n<Response>${body}</Response>`,
-    { headers: { "Content-Type": "text/xml" } }
-  );
+  return new NextResponse(envolverRespuesta(body), { headers: { "Content-Type": "text/xml" } });
 }
 
 export async function POST(req: NextRequest) {
@@ -40,11 +34,16 @@ export async function POST(req: NextRequest) {
 
   // Tipo reducido para evitar conflicto entre el tipo completo de Prisma y el
   // objeto parcial que construimos tras captureLead.
-  let contact: { id: string; assignedToId: string | null } | null = null;
+  let contact: { id: string; assignedToId: string | null; nombre: string; esNuevo: boolean } | null = null;
 
   const found = await findContactByPhone(from);
   if (found) {
-    contact = { id: found.id, assignedToId: found.assignedToId };
+    contact = {
+      id: found.id,
+      assignedToId: found.assignedToId,
+      nombre: [found.firstName, found.lastName].filter(Boolean).join(" ").trim(),
+      esNuevo: false,
+    };
   } else {
     const { captureLead } = await import("@/lib/intake/capture-lead");
     const r = await captureLead({
@@ -54,7 +53,8 @@ export async function POST(req: NextRequest) {
       phone: from,
     });
     if (r.contactId) {
-      contact = { id: r.contactId, assignedToId: r.assignedToId };
+      // Recién creado como «Llamada (entrante)»: sin nombre real, el panel muestra «Número nuevo».
+      contact = { id: r.contactId, assignedToId: r.assignedToId, nombre: "", esNuevo: r.isNew };
     } else {
       // #892: antes este fallo no dejaba rastro (la llamada se iba al buzón sin contacto).
       // Sin el teléfono en el log (dato personal): el CallSid basta para encontrarla en Twilio.
@@ -84,21 +84,18 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const recordingCb = escapeXml(
-    `${appUrl}/api/webhooks/twilio/voice/recording`
-  );
+  const recordingCb = escapeXml(`${appUrl}/api/webhooks/twilio/voice/recording`);
   const notice = `<Say language="es-MX">Esta llamada puede ser grabada con fines de calidad.</Say>`;
-  const voicemail =
-    `<Say language="es-MX">En este momento no podemos atenderte. Deja tu mensaje después del tono.</Say>` +
-    `<Record maxLength="120" recordingStatusCallback="${recordingCb}" />`;
 
   if (contact?.assignedToId) {
+    // El navegador del asesor ya NO contesta solo: timbra 20 s y, si no contesta o rechaza,
+    // Twilio llama a dial-action, que manda la llamada al buzón.
     return xml(
       notice +
         `<Dial timeout="20" record="record-from-answer-dual" recordingStatusCallback="${recordingCb}" recordingStatusCallbackEvent="completed" action="${escapeXml(`${appUrl}/api/webhooks/twilio/voice/dial-action`)}">` +
-        `<Client>${escapeXml(contact.assignedToId)}</Client></Dial>`
+        `<Client>${escapeXml(contact.assignedToId)}${parametrosLlamanteTwiml({ contactId: contact.id, nombre: contact.nombre, esNuevo: contact.esNuevo })}</Client></Dial>`
     );
   }
 
-  return xml(notice + voicemail);
+  return xml(notice + buzonTwiml(appUrl));
 }

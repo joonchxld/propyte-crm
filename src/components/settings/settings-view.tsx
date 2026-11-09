@@ -61,8 +61,16 @@ function Field({ label, hint, error, children }: { label: string; hint?: string;
   );
 }
 
-export function SettingsView() {
+const SECCIONES_PLANTILLAS = [
+  { key: "mias", label: "Mis plantillas" },
+  { key: "copilot", label: "Copilot (generales)" },
+] as const;
+
+// `plantillasCopilot` llega ya renderado desde el servidor (editor de #988): son las plantillas
+// generales de la cadencia del Copilot, iguales para todo el equipo.
+export function SettingsView({ plantillasCopilot }: { plantillasCopilot?: React.ReactNode } = {}) {
   const [tab, setTab] = useState<string>("perfil");
+  const [seccionPlantillas, setSeccionPlantillas] = useState<string>("mias");
   const [profile, setProfile] = useState<ProfileData>({});
   const [templates, setTemplates] = useState<Template[]>([]);
   const [saving, setSaving] = useState(false);
@@ -96,6 +104,9 @@ export function SettingsView() {
       const q = new URLSearchParams(window.location.search)
       const pedido = q.get("tab") ?? (q.has("google") ? "google" : null)
       if (pedido && TABS.some((t) => t.key === pedido)) setTab(pedido)
+      // ?tab=plantillas&seccion=copilot: a donde redirige la ruta vieja /copilot/plantillas.
+      const seccion = q.get("seccion")
+      if (seccion && SECCIONES_PLANTILLAS.some((s) => s.key === seccion)) setSeccionPlantillas(seccion)
     } catch { /* sin window (no debería pasar en un componente cliente) */ }
   }, [])
 
@@ -327,7 +338,37 @@ export function SettingsView() {
       )}
 
       {/* ── Plantillas ── */}
-      {tab === "plantillas" && (
+      {tab === "plantillas" && plantillasCopilot && (
+        <div className="flex max-w-3xl gap-1" role="tablist" aria-label="Tipo de plantillas">
+          {SECCIONES_PLANTILLAS.map((s) => (
+            <button
+              key={s.key}
+              type="button"
+              role="tab"
+              aria-selected={seccionPlantillas === s.key}
+              onClick={() => { setSeccionPlantillas(s.key); setMsg(""); }}
+              className="rounded-md border px-3 py-1.5 text-[12px] font-medium transition-colors"
+              style={{
+                borderColor: seccionPlantillas === s.key ? "var(--text-primary)" : "var(--border-default)",
+                color: seccionPlantillas === s.key ? "var(--text-primary)" : "var(--text-secondary)",
+              }}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {tab === "plantillas" && plantillasCopilot && seccionPlantillas === "copilot" && (
+        <div className="max-w-3xl space-y-2">
+          <p className="text-[12px]" style={{ color: "var(--text-secondary)" }}>
+            Plantillas de la cadencia de nuevos que usa el Copilot. Son generales: las mismas para todo el equipo.
+          </p>
+          {plantillasCopilot}
+        </div>
+      )}
+
+      {tab === "plantillas" && (!plantillasCopilot || seccionPlantillas === "mias") && (
         <div className="max-w-3xl space-y-4">
           <div className="crm-card space-y-3">
             <p className="text-[13px] font-semibold" style={{ color: "var(--text-primary)" }}>Nueva plantilla</p>

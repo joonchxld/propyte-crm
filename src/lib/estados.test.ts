@@ -32,6 +32,8 @@ import { CAMPOS_EXPORTACION } from "@/lib/contacts/exportar";
 // los tres se mueve solo, la base rechaza lo que la API acepta (o al revés).
 const raiz = join(__dirname, "..", "..");
 const migracion = readFileSync(join(raiz, "prisma", "migrations-manual", "2026-11-03-estado-subestado.sql"), "utf8");
+// #993: agrega YA_COMPRO y NUMERO_EQUIVOCADO (ALTER TYPE … ADD VALUE) y redefine razon_salida_valida.
+const migracion993 = readFileSync(join(raiz, "prisma", "migrations-manual", "2026-11-09-cadencias-por-rama.sql"), "utf8");
 
 function valoresDelEnumPrisma(nombre: string): string[] {
   const schema = readFileSync(join(raiz, "prisma", "schema.prisma"), "utf8");
@@ -48,8 +50,11 @@ function valoresDelTipo(nombre: string): string[] {
   return [...m[1].matchAll(/'([A-Z_]+)'/g)].map((x) => x[1]);
 }
 /** «WHEN 'X' THEN s IN ('A', 'B')» de una función de la migración → { X: [A, B] }. */
-function listasDeLaFuncion(funcion: string): Record<string, string[]> {
-  const cuerpo = migracion.split(`FUNCTION propyte_crm.${funcion}(`)[1].split("$$;")[0];
+function valoresAgregados(nombre: string, sql: string): string[] {
+  return [...sql.matchAll(new RegExp(`ALTER TYPE propyte_crm\\."${nombre}" ADD VALUE IF NOT EXISTS '([A-Z_]+)'`, "g"))].map((x) => x[1]);
+}
+function listasDeLaFuncion(funcion: string, sql: string = migracion): Record<string, string[]> {
+  const cuerpo = sql.split(`FUNCTION propyte_crm.${funcion}(`)[1].split("$$;")[0];
   const out: Record<string, string[]> = {};
   for (const m of cuerpo.matchAll(/WHEN '([A-Z_]+)'\s+THEN [a-z:]+ IN \(([^)]*)\)/g)) {
     out[m[1]] = [...m[2].matchAll(/'([A-Z_]+)'/g)].map((x) => x[1]);
@@ -70,9 +75,11 @@ describe("Lista única de estados (#953)", () => {
 
   it("las razones coinciden con Prisma, con la migración y con las listas por salida", () => {
     expect(valoresDelEnumPrisma("RazonSalida")).toEqual([...RAZON_SALIDA_ORDER]);
-    expect(valoresDelTipo("RazonSalida")).toEqual([...RAZON_SALIDA_ORDER]);
+    // En la base, ADD VALUE agrega al final; el orden del enum no importa, los valores sí.
+    expect([...valoresDelTipo("RazonSalida"), ...valoresAgregados("RazonSalida", migracion993)].sort()).toEqual([...RAZON_SALIDA_ORDER].sort());
     expect(Object.keys(RAZON_SALIDA_LABELS)).toEqual([...RAZON_SALIDA_ORDER]);
-    const enLaBase = listasDeLaFuncion("razon_salida_valida");
+    // La definición vigente de razon_salida_valida es la última (#993).
+    const enLaBase = listasDeLaFuncion("razon_salida_valida", migracion993);
     expect(enLaBase).toEqual(Object.fromEntries(Object.entries(RAZONES_POR_SALIDA).map(([k, v]) => [k, [...v]])));
     // Toda razón pertenece a alguna salida.
     const usadas = new Set(Object.values(RAZONES_POR_SALIDA).flat());

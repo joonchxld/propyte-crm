@@ -194,6 +194,9 @@ export const RAZON_SALIDA_ORDER = [
   "SITUACION_PERSONAL",
   "CANCELO_APARTADO",
   "NO_CONTACTAR",
+  // #993 (R12): ramas B4 y «Equivocado» de la clasificación de respuestas.
+  "YA_COMPRO",
+  "NUMERO_EQUIVOCADO",
   "OTRO",
 ] as const;
 export type RazonSalida = (typeof RAZON_SALIDA_ORDER)[number];
@@ -216,6 +219,8 @@ export const RAZON_SALIDA_LABELS: Record<RazonSalida, string> = {
   SITUACION_PERSONAL: "Cambió su situación personal",
   CANCELO_APARTADO: "Canceló apartado o contrato",
   NO_CONTACTAR: "Pidió no ser contactado",
+  YA_COMPRO: "Ya compró",
+  NUMERO_EQUIVOCADO: "Número equivocado (no es el lead)",
   OTRO: "Otro",
 };
 
@@ -225,7 +230,9 @@ export const RAZON_SALIDA_AYUDA: Partial<Record<RazonSalida, string>> = {
   DUPLICADO: "Con qué contacto se duplica",
   SPAM: "Bot, broma o sondeo de la competencia",
   NO_CALIFICA: "Presupuesto, renta en vez de compra, zona o producto que no manejamos, forma de pago",
-  NO_LE_INTERESA: "Solo exploraba, ya compró, buscaba un desarrollo que no comercializamos",
+  NO_LE_INTERESA: "Solo exploraba o buscaba un desarrollo que no comercializamos",
+  YA_COMPRO: "Ya compró o ya tiene asesor",
+  NUMERO_EQUIVOCADO: "Contestó otra persona; el número no es del lead",
   ELIGIO_OTRA_OPCION: "Qué desarrollo, reventa u otro asesor o broker (obligatorio)",
   PRECIO: "Precio total, enganche o mensualidad",
   FINANCIAMIENTO: "Crédito rechazado, financiamiento no aprobado, tasa o plazo",
@@ -239,7 +246,7 @@ export const RAZON_SALIDA_AYUDA: Partial<Record<RazonSalida, string>> = {
 // para Negocio Perdido. Una sola columna; la etiqueta cambia según el estado.
 export const RAZONES_POR_SALIDA: Record<"PERDIDO" | "CONTACTADO_PERDIDO" | "NEGOCIO_PERDIDO", readonly RazonSalida[]> = {
   PERDIDO: ["DATOS_INCORRECTOS", "SIN_RESPUESTA_TRAS_CADENCIA", "DUPLICADO", "SPAM", "PROTEGIDO_POR_BROKER", "OTRO"],
-  CONTACTADO_PERDIDO: ["NO_CALIFICA", "NO_LE_INTERESA", "POSPUSO", "DEJO_DE_RESPONDER", "NO_CONTACTAR", "OTRO"],
+  CONTACTADO_PERDIDO: ["NO_CALIFICA", "NO_LE_INTERESA", "POSPUSO", "DEJO_DE_RESPONDER", "NO_CONTACTAR", "YA_COMPRO", "NUMERO_EQUIVOCADO", "OTRO"],
   NEGOCIO_PERDIDO: [
     "ELIGIO_OTRA_OPCION", "PRECIO", "FINANCIAMIENTO", "PRODUCTO", "CONFIANZA", "POSPUSO",
     "SITUACION_PERSONAL", "DEJO_DE_RESPONDER", "CANCELO_APARTADO", "NO_CONTACTAR", "OTRO",

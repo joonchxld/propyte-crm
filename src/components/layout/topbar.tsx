@@ -56,6 +56,7 @@ const MODULE_LABELS: Record<string, string> = {
   "/metas": "Metas",
   "/reports": "Reportes",
   "/reclutamiento": "Reclutamiento",
+  "/cadencias": "Cadencias",
   "/career": "Mi Carrera",
   "/settings": "Mi Perfil",
   "/duplicados": "Duplicados",

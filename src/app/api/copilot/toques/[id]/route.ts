@@ -1,6 +1,6 @@
 // #988 — PATCH /api/copilot/toques/:id — el asesor marca (o desmarca) el resultado de un toque.
 //   { resultado: "ENVIADO" | "CONTESTO" | … | null, variante?: string | null }
-// Contestó o Respondió pasan al contacto a Contactado y detienen la cadencia
+// Contestó o Respondió pausan la cadencia y dejan la tarea «Clasificar respuesta» (#993)
 // (lib/copilot/cadencia-servicio.ts → marcarResultado).
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -37,7 +37,7 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
       usuarioId: session.user.id,
     });
     if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status });
-    return NextResponse.json({ ok: true, terminada: r.terminada });
+    return NextResponse.json({ ok: true, pausada: r.pausada });
   } catch (err) {
     if (esTablaSinMigrar(err)) return NextResponse.json({ error: "Copilot todavía no está instalado (falta la migración)" }, { status: 503 });
     console.error("[copilot] marcar toque:", err);

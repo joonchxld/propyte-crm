@@ -20,6 +20,7 @@ const ICONO: Record<Canal, typeof Phone> = {
   SMS: MessageSquareText,
   CORREO: Mail,
   BUZON: Voicemail,
+  MISMO_CANAL: MessageCircle,
 };
 
 const TEMPERATURA: Record<string, { texto: string; clase: string }> = {
@@ -91,7 +92,7 @@ function ToqueFila({
   }
 
   const enlace =
-    toque.canal === "WHATSAPP"
+    toque.canal === "WHATSAPP" || toque.canal === "MISMO_CANAL"
       ? enlaceWhatsApp(c.telefono, texto)
       : toque.canal === "CORREO"
         ? enlaceCorreo(c.correo, base?.asunto ?? null, texto)
@@ -106,6 +107,7 @@ function ToqueFila({
         <Icono className="h-4 w-4 shrink-0 text-[color:var(--text-tertiary)]" aria-hidden="true" />
         <span className="text-[13px] font-semibold text-[color:var(--text-primary)]">
           {toque.codigo.replace(/^CORREO/, "Correo ").replace(/^BUZON/, "Buzón ")}
+          {toque.canal === "MISMO_CANAL" ? " · por el canal donde respondió" : ""}
         </span>
         <span className="text-[12px] text-[color:var(--text-secondary)]">{toque.cuando}</span>
         {toque.vencido && (
@@ -140,6 +142,7 @@ function ToqueFila({
               <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> {toque.bloqueo}
             </p>
           )}
+          {toque.nota && <p className="text-[12px] text-[color:var(--text-secondary)]">{toque.nota}</p>}
 
           {toque.canal === "LLAMADA" ? (
             <div className="flex flex-wrap items-center gap-2 text-[12px] text-[color:var(--text-secondary)]">
@@ -201,7 +204,7 @@ function ToqueFila({
                 )}
                 {enlace && !toque.bloqueo && (
                   <a className="btn-secondary text-[12px]" href={enlace} target="_blank" rel="noreferrer">
-                    <ExternalLink className="h-3.5 w-3.5" /> Abrir {toque.canalLabel}
+                    <ExternalLink className="h-3.5 w-3.5" /> Abrir {toque.canal === "MISMO_CANAL" ? "WhatsApp" : toque.canalLabel}
                   </a>
                 )}
               </div>
@@ -259,8 +262,8 @@ export function TareaDelDia({
           </span>
         )}
         <span className="text-[12px] text-[color:var(--text-secondary)]">
-          Día {tarea.dia} de {tarea.ultimoDia}
-          {tarea.tipo === "BASE_DE_DATOS" ? " · cadencia ligera" : ""}
+          {tarea.nombreCadencia} · Día {tarea.dia}
+          {tarea.ultimoDia ? ` de ${tarea.ultimoDia}` : ""}
         </span>
         {mostrarContacto && (
           <span className="text-[12px] text-[color:var(--text-tertiary)]">

@@ -1,14 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { ULTIMO_DIA, calendarioCompleto, cuandoLlamada, modoSmsDelDia4, toquesDelDia, type PerfilCadencia } from "./__pruebas__/calendario-988";
 import {
   FLUJOS_SIN_CADENCIA,
   RESULTADOS_POR_CANAL,
+  RESULTADO_LABELS,
   TIPOS_SIN_CADENCIA,
-  ULTIMO_DIA,
-  calendarioCompleto,
   compararTareas,
-  cuandoLlamada,
   diaDeCadencia,
   esIntento,
   esRespuesta,
@@ -17,13 +16,12 @@ import {
   fechaCancun,
   fechaDelDia,
   horaCancun,
-  modoSmsDelDia4,
   paisDeTelefono,
-  toquesDelDia,
-  type PerfilCadencia,
 } from "./cadencia-nuevos";
 
 const MIGRACION = readFileSync(join(process.cwd(), "prisma/migrations-manual/2026-11-05-copilot-mi-dia.sql"), "utf8");
+// #993: la definición vigente de las exclusiones (copilot_contacto_vivo) y del CHECK de resultados.
+const MIGRACION_993 = readFileSync(join(process.cwd(), "prisma/migrations-manual/2026-11-09-cadencias-por-rama.sql"), "utf8");
 
 function perfil(p: Partial<PerfilCadencia> = {}): PerfilCadencia {
   return { tipo: "NUEVOS", pais: "MX", fuente: "META_ADS", waAbierto: false, modoSms: null, horaEntrada: 10, ...p };
@@ -174,8 +172,8 @@ describe("plantillas sembradas", () => {
 });
 
 describe("a quién aplica (paridad con el SQL)", () => {
-  it("los tipos y flujos excluidos son los mismos en el código y en la migración", () => {
-    const fn = MIGRACION.slice(MIGRACION.indexOf("copilot_aplica_cadencia(c propyte_crm.contacts)"));
+  it("los tipos y flujos excluidos son los mismos en el código y en la migración vigente (#993)", () => {
+    const fn = MIGRACION_993.slice(MIGRACION_993.indexOf("copilot_contacto_vivo(c propyte_crm.contacts)"));
     const tipos = fn.match(/"contactType"::text, ''\) NOT IN \(([^)]*)\)/)?.[1] ?? "";
     const flujos = fn.match(/flujo::text, ''\) NOT IN \(([^)]*)\)/)?.[1] ?? "";
     expect(tipos.match(/'[A-Z_]+'/g)?.map((s) => s.slice(1, -1))).toEqual([...TIPOS_SIN_CADENCIA]);
@@ -215,11 +213,9 @@ describe("resultados", () => {
     expect(esIntento("ENVIADO")).toBe(true);
     expect(esIntento("NO_SE_PUDO")).toBe(false);
   });
-  it("la migración acepta exactamente los resultados del código", () => {
-    const check = MIGRACION.match(/"resultado" IN \(([^)]*)\)/)?.[1] ?? "";
-    expect(check.match(/'[A-Z_]+'/g)?.map((s) => s.slice(1, -1)).sort()).toEqual(
-      ["CONTESTO", "NO_CONTESTO", "DEJADO", "ENVIADO", "RESPONDIO", "NO_SE_PUDO", "NO_HECHO"].sort(),
-    );
+  it("la migración vigente (#993) acepta exactamente los resultados del código", () => {
+    const check = MIGRACION_993.match(/copilot_toques_resultado_check CHECK \("resultado" IS NULL OR "resultado" IN \(([^)]*)\)/)?.[1] ?? "";
+    expect(check.match(/'[A-Z_]+'/g)?.map((s) => s.slice(1, -1)).sort()).toEqual(Object.keys(RESULTADO_LABELS).sort());
   });
 });
 

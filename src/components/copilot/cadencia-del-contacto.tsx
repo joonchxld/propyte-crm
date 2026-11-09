@@ -1,19 +1,29 @@
-// #988 — Sección «Cadencia de nuevos» de la ficha del contacto: en qué día va, los toques de hoy
-// (y los atrasados) para marcarlos aquí mismo, lo que ya se hizo y lo que sigue. No se muestra si
-// el contacto nunca tuvo cadencia.
+// #988 / #993 — Sección «Cadencia» de la ficha del contacto. Muestra:
+//   - la respuesta por clasificar, si la hay;
+//   - en qué cadencia y en qué día va;
+//   - los toques de hoy y los atrasados, para marcarlos aquí mismo;
+//   - lo hecho, lo que sigue y las cadencias anteriores.
+// No se muestra si el contacto nunca tuvo cadencia.
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
 import type { CadenciaDeContacto } from "@/lib/copilot/cadencia-servicio";
-import { CANAL_LABELS, RESULTADO_LABELS, TIPO_CADENCIA_LABELS, type Canal, type Resultado } from "@/lib/copilot/cadencia-nuevos";
+import { CANAL_LABELS, RESULTADO_LABELS, type Canal, type Resultado } from "@/lib/copilot/cadencia-nuevos";
 import { TareaDelDia } from "./tarea-del-dia";
+import { ClasificarRespuesta } from "./clasificar-respuesta";
 
-const MOTIVO_FIN: Record<string, string> = {
-  RESPONDIO: "Terminó: el lead respondió y pasó a Contactado",
-  SALIO_DEL_ESTADO: "Terminó: el contacto salió de Nuevo / Sin respuesta",
-  YA_NO_APLICA: "Terminó: el contacto ya no lleva la cadencia (tipo, flujo o No contactar)",
-  SIN_RESPUESTA: "Terminó sin respuesta: pasó a Perdido · Sin respuesta tras cadencia",
+export const MOTIVO_FIN: Record<string, string> = {
+  RESPONDIO: "el lead respondió y se clasificó",
+  SALIO_DEL_ESTADO: "el contacto cambió de estado",
+  YA_NO_APLICA: "el contacto ya no lleva cadencia (tipo, flujo o No contactar)",
+  SIN_RESPUESTA: "se cumplió el plazo",
+  CITA_AGENDADA: "se agendó la cita",
+  CAMBIO_RAMA: "pasó a otra cadencia",
 };
+
+function fechaCorta(iso: string): string {
+  return new Date(iso).toLocaleDateString("es-MX", { day: "numeric", month: "short", timeZone: "America/Cancun" });
+}
 
 export function CadenciaDelContacto({ contactId, userId, onCambio }: { contactId: string; userId: string; onCambio?: () => void }) {
   const [data, setData] = useState<CadenciaDeContacto | null>(null);
@@ -42,24 +52,30 @@ export function CadenciaDelContacto({ contactId, userId, onCambio }: { contactId
     void cargar();
     onCambio?.();
   };
+  const estadoTexto = activa
+    ? `Día ${data.ultimoDia ? Math.min(data.dia, data.ultimoDia) : data.dia}${data.ultimoDia ? ` de ${data.ultimoDia}` : ""}`
+    : data.estado === "PAUSADA"
+      ? "En pausa: el lead respondió"
+      : `Terminó: ${MOTIVO_FIN[data.motivoFin ?? ""] ?? "—"}`;
 
   return (
     <div className="crm-card space-y-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-[14px] font-semibold text-[color:var(--text-primary)]">{TIPO_CADENCIA_LABELS[data.tipo]}</h3>
-        <span className="text-[12px] text-[color:var(--text-secondary)]">
-          {activa ? `Día ${Math.min(data.dia, data.ultimoDia)} de ${data.ultimoDia}` : MOTIVO_FIN[data.motivoFin ?? ""] ?? "Terminó"}
-        </span>
+        <h3 className="text-[14px] font-semibold text-[color:var(--text-primary)]">
+          {data.nombre}
+          {data.rama && <span className="ml-2 text-[12px] font-normal text-[color:var(--text-tertiary)]">{data.rama}</span>}
+        </h3>
+        <span className="text-[12px] text-[color:var(--text-secondary)]">{estadoTexto}</span>
       </div>
 
-      {activa && pendientes.length === 0 && (
-        <p className="text-[12px] text-[color:var(--text-tertiary)]">Hoy no hay toques pendientes.</p>
-      )}
+      {data.clasificar && <ClasificarRespuesta pendiente={data.clasificar} onCambio={refrescar} mostrarContacto={false} />}
+
+      {activa && pendientes.length === 0 && <p className="text-[12px] text-[color:var(--text-tertiary)]">Hoy no hay toques pendientes.</p>}
       {pendientes.map((t) => (
         <TareaDelDia key={t.clave} tarea={t} userId={userId} onCambio={refrescar} mostrarContacto={false} />
       ))}
 
-      {(hechas.length > 0 || data.siguientes.length > 0) && (
+      {(hechas.length > 0 || data.siguientes.length > 0 || data.historial.length > 0) && (
         <button type="button" className="text-[12px] text-[color:var(--text-secondary)] underline" onClick={() => setVerHistorial((v) => !v)}>
           {verHistorial ? "Ocultar el historial y lo que sigue" : "Ver el historial y lo que sigue"}
         </button>
@@ -85,6 +101,16 @@ export function CadenciaDelContacto({ contactId, userId, onCambio }: { contactId
                   }, {}),
                 )
                   .map(([dia, qs]) => `día ${dia}: ${qs.join(", ")}`)
+                  .join(" · ")}
+              </span>
+            </div>
+          )}
+          {data.historial.length > 0 && (
+            <div>
+              <span className="font-medium text-[color:var(--text-primary)]">Antes:</span>{" "}
+              <span className="text-[color:var(--text-secondary)]">
+                {data.historial
+                  .map((h) => `${h.nombre} (${fechaCorta(h.inicio)}${h.finAt ? ` – ${fechaCorta(h.finAt)}` : ""}${h.motivoFin ? `, ${MOTIVO_FIN[h.motivoFin] ?? h.motivoFin}` : ""})`)
                   .join(" · ")}
               </span>
             </div>

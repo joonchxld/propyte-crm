@@ -1,9 +1,10 @@
 // ============================================================
-// Página: /copilot (#947, #988) — «Mi día»: las tareas de la cadencia de nuevos del asesor.
+// Página: /copilot (#947, #988, #993) — «Mi día»: respuestas por clasificar y los toques de las
+// cadencias del asesor (las del módulo Cadencias).
 // ============================================================
 import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth/session";
-import { miDia } from "@/lib/copilot/cadencia-servicio";
+import { miDia, type ClasificacionPendiente } from "@/lib/copilot/cadencia-servicio";
 import { esTablaSinMigrar } from "@/lib/copilot/sin-migrar";
 import type { MiDia } from "@/lib/copilot/mi-dia";
 import { MiDiaView } from "@/components/copilot/mi-dia-view";
@@ -15,13 +16,13 @@ export const metadata = {
   title: "Copilot | Propyte CRM",
 };
 
-const VACIO: MiDia = { tareas: [], fueraDelTope: 0, hechasHoy: [], vencidas: 0 };
+const VACIO: MiDia & { clasificar: ClasificacionPendiente[] } = { tareas: [], fueraDelTope: 0, hechasHoy: [], vencidas: 0, clasificar: [] };
 
 export default async function CopilotPage() {
   const session = await getServerSession();
   if (!session?.user) redirect("/login");
 
-  let data: MiDia = VACIO;
+  let data: MiDia & { clasificar: ClasificacionPendiente[] } = VACIO;
   let sinMigrar = false;
   try {
     data = await miDia(session.user.id);

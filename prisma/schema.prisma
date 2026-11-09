@@ -502,6 +502,9 @@ enum RazonSalida {
   SITUACION_PERSONAL
   CANCELO_APARTADO
   NO_CONTACTAR
+  // #993 (R12 del PDF «Cadencias por Rama»): ramas B4 «Ya compró» y «Equivocado / no es el lead».
+  YA_COMPRO
+  NUMERO_EQUIVOCADO
   OTRO
 
   @@schema("propyte_crm")
@@ -1592,9 +1595,13 @@ model CopilotPlantilla {
 model CopilotCadencia {
   id               String    @id @default(uuid())
   contactId        String
-  tipo             String // NUEVOS | BASE_DE_DATOS
-  estado           String    @default("ACTIVA") // ACTIVA | TERMINADA (una ACTIVA por contacto: índice parcial)
-  motivoFin        String? // RESPONDIO | SALIO_DEL_ESTADO | YA_NO_APLICA | SIN_RESPUESTA
+  tipo             String // copilot_cadencia_defs.tipo (#993): NUEVOS, BASE_DE_DATOS, AGENDAR, POSPUSO…
+  estado           String    @default("ACTIVA") // ACTIVA | PAUSADA (esperando clasificar) | TERMINADA (una ACTIVA por contacto)
+  motivoFin        String? // RESPONDIO | SALIO_DEL_ESTADO | YA_NO_APLICA | SIN_RESPUESTA | CITA_AGENDADA | CAMBIO_RAMA
+  anclaAt          DateTime? // #993: desde dónde se cuentan los pasos (NULL en las de la #988 = inicio)
+  anclaTipo        String?
+  ignorarAntesDe   DateTime? // #993: «no era respuesta»: lo anterior no cuenta como respuesta
+  origenId         String? // #993: la cadencia de la que viene
   inicio           DateTime
   diaInicio        DateTime  @db.Date // día 1, fecha civil de Cancún
   horaEntrada      Int // 0–23, Cancún: decide la franja de la L1
@@ -1624,6 +1631,9 @@ model CopilotToque {
   cuando         String
   variante       String?
   resultado      String? // NULL = pendiente
+  programadoAt   DateTime  @default(now()) // #993: cuándo toca (de ahí se cuentan las 24 h)
+  expiraAt       DateTime?
+  nota           String?
   resultadoAt    DateTime?
   resultadoPorId String?
   avisoVencidaAt DateTime?
@@ -1632,6 +1642,77 @@ model CopilotToque {
   @@unique([cadenciaId, codigo])
   @@index([contactId])
   @@map("copilot_toques")
+  @@schema("propyte_crm")
+}
+
+// #993 — Módulo «Cadencias» (Desempeño): el catálogo que sigue Copilot. Migración
+// prisma/migrations-manual/2026-11-09-cadencias-por-rama.sql; tipos y siembra en
+// src/lib/copilot/cadencias-def.ts; evaluación en src/lib/copilot/motor.ts.
+model CopilotCadenciaDef {
+  tipo              String   @id
+  nombre            String
+  rama              String
+  descripcion       String   @default("")
+  disparador        String   @default("")
+  anclaTipo         String
+  estados           String[]
+  respuestaTermina  Boolean  @default(true)
+  terminaConCita    Boolean  @default(false)
+  ignoraNoContactar Boolean  @default(false)
+  finDias           Int
+  finAncla          String   @default("CADENCIA")
+  finEstado         String?
+  finSubestado      String?
+  finRazon          String?
+  finSiguiente      String?
+  activa            Boolean  @default(true)
+  orden             Int      @default(0)
+  updatedAt         DateTime @default(now())
+  updatedById       String?
+
+  @@map("copilot_cadencia_defs")
+  @@schema("propyte_crm")
+}
+
+model CopilotCadenciaPaso {
+  id          String   @id @default(uuid())
+  tipo        String
+  codigo      String
+  canal       String
+  offset      Int
+  unidad      String // DIA | MIN
+  ancla       String   @default("CADENCIA") // CADENCIA | FECHA_RECONTACTO
+  plantilla   String?
+  paises      String[] @default([])
+  whatsapp    String   @default("SIEMPRE") // SIEMPRE | CON_WA | SIN_WA
+  cuando      String
+  nota        String?
+  orden       Int
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now())
+  updatedById String?
+
+  @@index([tipo, orden])
+  @@map("copilot_cadencia_pasos")
+  @@schema("propyte_crm")
+}
+
+model CopilotClasificacion {
+  id              String    @id @default(uuid())
+  contactId       String
+  cadenciaId      String?
+  respuestaAt     DateTime
+  estadoAntes     String?
+  subestadoAntes  String?
+  resultado       String? // NULL = pendiente; ver src/lib/copilot/clasificacion.ts
+  fechaRecontacto DateTime? @db.Date
+  resueltaAt      DateTime?
+  resueltaPorId   String?
+  createdAt       DateTime  @default(now())
+
+  @@index([contactId])
+  @@map("copilot_clasificaciones")
   @@schema("propyte_crm")
 }
 

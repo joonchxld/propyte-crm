@@ -40,11 +40,14 @@ describe("voiceReducer", () => {
 describe("datosDeLlamante", () => {
   it("lee customParameters", () => {
     const d = datosDeLlamante(new Map([["contactId", "c1"], ["nombre", " Ana "], ["esNuevo", "1"]]), { From: "+52" });
-    expect(d).toEqual({ contactId: "c1", nombre: "Ana", telefono: "+52", esNuevo: true });
+    expect(d).toEqual({ contactId: "c1", nombre: "Ana", telefono: "+52", esNuevo: true, sinAsesor: false });
   });
   it("respaldo en From cuando no hay parámetros", () => {
     const d = datosDeLlamante(new Map(), { From: "+5211" });
-    expect(d).toEqual({ contactId: null, nombre: "", telefono: "+5211", esNuevo: false });
+    expect(d).toEqual({ contactId: null, nombre: "", telefono: "+5211", esNuevo: false, sinAsesor: false });
     expect(etiquetaLlamante(d)).toBe("+5211");
+  });
+  it("datosDeLlamante lee sinAsesor", () => {
+    expect(datosDeLlamante(new Map([["sinAsesor", "1"]]), {}).sinAsesor).toBe(true);
   });
 });

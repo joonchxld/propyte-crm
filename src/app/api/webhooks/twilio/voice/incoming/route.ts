@@ -4,12 +4,43 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { validateTwilioSignature } from "@/lib/twilio/client";
 import { findContactByPhone } from "@/lib/twilio/utils";
+import { destinatariosHiloSinDueno } from "@/lib/messaging/aviso-sin-dueno";
 import {
   buzonTwiml,
+  clientesTwiml,
   envolverRespuesta,
   escapeXml,
   parametrosLlamanteTwiml,
 } from "@/lib/twilio/twiml-voz";
+
+/** Máximo de navegadores que suenan a la vez cuando el contacto no tiene asesor. */
+const MAX_DESTINATARIOS_SIN_ASESOR = 5;
+
+/**
+ * Contacto sin asesor: suena al responsable (marca de su última conversación → gerencia de
+ * su plaza → administradores), la misma cadena de los hilos sin dueño. No asigna nada.
+ * Nunca lanza: si falla, la llamada va a buzón como antes.
+ */
+async function destinatariosSinAsesor(contactId: string): Promise<string[]> {
+  try {
+    const [c, conv] = await Promise.all([
+      prisma.contact.findUnique({ where: { id: contactId }, select: { targetPlaza: true } }),
+      prisma.conversation.findFirst({
+        where: { contactId, connectorId: { not: null } },
+        orderBy: { lastMessageAt: "desc" },
+        select: { connectorId: true },
+      }),
+    ]);
+    const r = await destinatariosHiloSinDueno({
+      connectorId: conv?.connectorId ?? null,
+      plaza: c?.targetPlaza ?? null,
+    });
+    return r.userIds.slice(0, MAX_DESTINATARIOS_SIN_ASESOR);
+  } catch (e) {
+    console.error("[voice/incoming] no se pudo resolver al responsable:", e);
+    return [];
+  }
+}
 
 function xml(body: string) {
   return new NextResponse(envolverRespuesta(body), { headers: { "Content-Type": "text/xml" } });
@@ -62,12 +93,20 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if (contact && contact.assignedToId && params.CallSid) {
+  // Con asesor suena solo a él; sin asesor, a la vez a los responsables (sin asignar el contacto).
+  const sinAsesor = !!contact && !contact.assignedToId;
+  const destinatarios = !contact
+    ? []
+    : contact.assignedToId
+      ? [contact.assignedToId]
+      : await destinatariosSinAsesor(contact.id);
+
+  if (contact && destinatarios.length > 0 && params.CallSid) {
     await prisma.activity
       .create({
         data: {
           contactId: contact.id,
-          userId: contact.assignedToId,
+          userId: destinatarios[0],
           activityType: "CALL_INBOUND",
           subject: "Llamada entrante",
           status: "PENDIENTE",
@@ -78,22 +117,23 @@ export async function POST(req: NextRequest) {
         if ((e as { code?: string })?.code !== "P2002")
           console.error("[voice/incoming] activity.create:", e);
       });
-  } else if (contact && !contact.assignedToId) {
+  } else if (contact && sinAsesor) {
     console.warn(
-      `[voice/incoming] llamada entrante sin asesor asignado, contacto ${contact.id} — Activity no registrada`
+      `[voice/incoming] llamada entrante sin asesor y sin responsable a quien atribuirla, contacto ${contact.id} — Activity no registrada`
     );
   }
 
   const recordingCb = escapeXml(`${appUrl}/api/webhooks/twilio/voice/recording`);
   const notice = `<Say language="es-MX">Esta llamada puede ser grabada con fines de calidad.</Say>`;
 
-  if (contact?.assignedToId) {
-    // El navegador del asesor ya NO contesta solo: timbra 20 s y, si no contesta o rechaza,
-    // Twilio llama a dial-action, que manda la llamada al buzón.
+  if (contact && destinatarios.length > 0) {
+    // El navegador NO contesta solo: timbra 20 s y, si nadie contesta o rechazan, Twilio llama
+    // a dial-action, que manda la llamada al buzón.
     return xml(
       notice +
         `<Dial timeout="20" record="record-from-answer-dual" recordingStatusCallback="${recordingCb}" recordingStatusCallbackEvent="completed" action="${escapeXml(`${appUrl}/api/webhooks/twilio/voice/dial-action`)}">` +
-        `<Client>${escapeXml(contact.assignedToId)}${parametrosLlamanteTwiml({ contactId: contact.id, nombre: contact.nombre, esNuevo: contact.esNuevo })}</Client></Dial>`
+        clientesTwiml(destinatarios, { contactId: contact.id, nombre: contact.nombre, esNuevo: contact.esNuevo, sinAsesor }) +
+        `</Dial>`
     );
   }
 

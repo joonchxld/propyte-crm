@@ -29,14 +29,23 @@ export interface DatosLlamante {
   contactId: string;
   nombre: string;
   esNuevo: boolean;
+  /** El contacto no tiene asesor: la llamada suena al responsable (el panel lo avisa). */
+  sinAsesor?: boolean;
 }
 
 export function parametrosLlamanteTwiml(d: DatosLlamante): string {
   return (
     `<Parameter name="contactId" value="${escapeXml(d.contactId)}" />` +
     `<Parameter name="nombre" value="${escapeXml(d.nombre)}" />` +
-    `<Parameter name="esNuevo" value="${d.esNuevo ? "1" : "0"}" />`
+    `<Parameter name="esNuevo" value="${d.esNuevo ? "1" : "0"}" />` +
+    (d.sinAsesor ? `<Parameter name="sinAsesor" value="1" />` : "")
   );
+}
+
+/** Un <Client> por usuario (suena a la vez en todos; el primero que contesta se la queda). */
+export function clientesTwiml(userIds: string[], d: DatosLlamante): string {
+  const params = parametrosLlamanteTwiml(d);
+  return userIds.map((id) => `<Client>${escapeXml(id)}${params}</Client>`).join("");
 }
 
 /**

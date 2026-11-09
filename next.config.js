@@ -16,7 +16,8 @@ const nextConfig = {
     // agota su límite de hilos: `OS can't spawn worker thread: Resource temporarily
     // unavailable (os error 11)` → SIGABRT. Desde el 2026-10-19 tumba los builds del CRM y
     // de la web, incluso de un commit que el 16-oct había compilado bien. Si con 4 vuelve a
-    // fallar, bajar a 2. No afecta al servidor en producción, solo al build.
+    // fallar, bajar a 2. No afecta al servidor en producción, solo al build. Desde 2026-11 se
+    // compila en el VPS (4 núcleos; el contenedor de build tiene tope de 2 CPU): se deja igual.
     cpus: 4,
   },
   async headers() {

@@ -6,7 +6,7 @@ import type { LectorDeConfig } from "./types";
  * SE APARTA DEL PATRÓN DEL HUB A PROPÓSITO. Las puertas del Hub leen su token de una
  * variable de entorno y su pantalla "conectar" solo lo muestra. Aquí vive en
  * `system_config`, y el motivo es que un secreto que solo se puede cambiar entrando al
- * panel de Hostinger **no se rota nunca**: la rotación deja de ser una operación del
+ * servidor (antes el panel de hPanel, hoy el .env del VPS) **no se rota nunca**: la rotación deja de ser una operación del
  * producto y se vuelve una tarea de infraestructura que nadie hace.
  *
  * Y aquí la rotación importa más que en el Hub: el token viaja EN LA RUTA —único camino

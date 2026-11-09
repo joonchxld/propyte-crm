@@ -1,4 +1,4 @@
-// Pull de LinkedIn Lead Gen Forms — agendar en Hostinger CADA 15 MIN:
+// Pull de LinkedIn Lead Gen Forms — agendado en el crontab de root del VPS CADA 15 MIN:
 //   curl -s -H "x-cron-secret: $CRON_SECRET" https://crm.propyte.com/api/cron/connectors/linkedin
 import { NextRequest, NextResponse } from "next/server";
 import { rechazoCron } from "@/lib/cron/auth";

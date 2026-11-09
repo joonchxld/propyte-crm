@@ -6,7 +6,7 @@
 ## Pre-requisitos de activación (fuera del código)
 1. Aplicar migración `prisma/migrations-manual/2026-06-19-conexiones-multicuenta.sql`
    a la Supabase compartida (`oaijxdpevakashxshhvm`) + `npx prisma generate`.
-2. Cron Hostinger `*/15 * * * *` → `/api/cron/connectors/linkedin`
+2. Cron del VPS (crontab de root, ya agendado) `*/15 * * * *` → `/api/cron/connectors/linkedin`
    (header `x-cron-secret`, mismo `CRON_SECRET`; NO Authorization Bearer).
 3. Webhooks: Meta `/api/connectors/meta/webhook` (ya existe) por página;
    Google Ads: en cada Lead Form, Webhook URL `https://crm.propyte.com/api/connectors/google/webhook`

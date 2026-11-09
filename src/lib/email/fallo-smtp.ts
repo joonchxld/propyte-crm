@@ -94,10 +94,11 @@ export function armarAvisoFalloSmtp(input: {
       case "credenciales":
         return (
           `${servidor} rechazó el usuario y la clave configurados. Hay que generar una clave de ` +
-          `aplicación nueva en esa cuenta de Google, ponerla en SMTP_PASS en hPanel y redesplegar el CRM.`
+          `aplicación nueva en esa cuenta de Google, ponerla en SMTP_PASS del .env del VPS ` +
+          `(/opt/propyte/crm/shared/.env) y redesplegar el CRM con deploy.sh.`
         );
       case "no_configurado":
-        return "Faltan SMTP_HOST, SMTP_USER o SMTP_PASS en las variables del servidor (hPanel).";
+        return "Faltan SMTP_HOST, SMTP_USER o SMTP_PASS en las variables del servidor (/opt/propyte/crm/shared/.env en el VPS).";
       case "conexion":
         return `No se pudo conectar con ${servidor}. Puede ser una caída momentánea, o el host o el puerto (SMTP_PORT) están mal.`;
       case "otro":

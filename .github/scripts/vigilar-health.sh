@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# #905 (seguimiento de la #771) — vigila /api/health desde fuera de Hostinger y le avisa a
+# #905 (seguimiento de la #771) — vigila /api/health desde fuera del VPS y le avisa a
 # una persona cuando el CRM no responde.
 #
 # Por qué existe: en septiembre el CRM estuvo ~3 días devolviendo 500 (5,399 errores en el
@@ -24,10 +24,10 @@
 #   - No detecta en minutos: el cron de GitHub es cada 30 min y GitHub suele retrasarlo
 #     5-15 min más en horas de carga. Pasa de «días» a «menos de una hora», no a «al
 #     instante».
-#   - No distingue «cayó el CRM» de «cayó la red entre GitHub y Hostinger». Para eso están
+#   - No distingue «cayó el CRM» de «cayó la red entre GitHub y el VPS». Para eso están
 #     los dos intentos; si los dos fallan, se avisa igual y lo decide una persona.
 #   - No sabe qué versión está publicada: después de un push a main solo comprueba que lo
-#     que sea que esté sirviendo Hostinger responda. Si el proceso viejo sigue vivo y el
+#     que sea que esté sirviendo el VPS responda. Si el proceso viejo sigue vivo y el
 #     nuevo cae horas después (como el 10→11 de septiembre), lo atrapa el cron, no esta
 #     comprobación posterior al push.
 #   - Que el aviso LLEGUE depende de la configuración de notificaciones de GitHub de quien
@@ -53,7 +53,7 @@ comprobar() {
   ultimo_codigo="$(curl -sS -o "$tmp" -w '%{http_code}' --max-time "$TIMEOUT_SEG" \
     -H 'Cache-Control: no-cache' "$HEALTH_URL" 2>/dev/null)" || true
   [ -z "$ultimo_codigo" ] && ultimo_codigo="000"
-  # Extracto corto y en una línea: si Hostinger devuelve una página HTML, no queremos
+  # Extracto corto y en una línea: si el servidor devuelve una página HTML, no queremos
   # pegarla entera en el issue.
   ultimo_cuerpo="$(head -c 300 "$tmp" | tr '\r\n\t' '   ')"
   rm -f "$tmp"
@@ -145,7 +145,7 @@ cuerpo="@${AVISAR_A} el monitor externo del CRM detectó una caída.
 **Qué significa:** \`/api/health\` hace un \`SELECT 1\` real contra la base. Si falla, todo lo que toca la base está caído —el tablero, la sesión y **los webhooks de Meta**, o sea que los leads que escriban ahora se están perdiendo— aunque \`/login\` siga cargando normal (así pasó en septiembre).
 
 **Por dónde empezar:**
-1. Log del servidor en hPanel (Hostinger) → buscar la primera línea de error.
+1. En el VPS: \`docker compose -f /opt/propyte/crm/docker-compose.yml logs --tail 200\` → buscar la primera línea de error; y \`tail -30 /var/log/crm-deploy.log\` por si falló un despliegue automático (guía: \`docs/infra/vps.md\`).
 2. ¿Hubo un push a \`main\` justo antes? En septiembre la causa fue un build mal formado (\`Cannot find module '.prisma/client/default'\`).
 3. Si \`HTTP 000\`: el servidor ni contestó (caído, DNS o red), no es un error de la app.
 

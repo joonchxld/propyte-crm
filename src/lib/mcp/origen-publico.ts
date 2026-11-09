@@ -1,7 +1,7 @@
 /**
  * El origen público de una petición, tomado de las cabeceras y NO de `req.url`.
  *
- * Detrás de Passenger/LiteSpeed en Hostinger, `req.url` trae la dirección interna donde
+ * Detrás de un proxy (Passenger/LiteSpeed en hPanel hasta 2026-11; hoy Caddy en el VPS), `req.url` trae la dirección interna donde
  * Node escucha. Medido en producción el 2026-09-17: el documento RFC 9728 salió
  * anunciando `https://0.0.0.0:3000/api/mcp/revision` y el `WWW-Authenticate` mandaba a
  * `https://0.0.0.0:3000/.well-known/...`, inalcanzable para cualquier cliente. Una

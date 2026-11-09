@@ -2,7 +2,7 @@
 // Respaldo de inbound cuando Pub/Sub no está disponible (p.ej. local) o como red de seguridad.
 // #889: el tick /api/cron/workflows ya hace esta misma revisión cada minuto (misma función,
 // lib/google/gmail-sync.ts). Esta ruta se conserva para correrla a mano o como respaldo.
-// Agendar en Hostinger (x-cron-secret), p.ej. cada 15 min:
+// Agendado en el crontab de root del VPS (x-cron-secret), cada 15 min:
 //   curl -s -H "x-cron-secret: $CRON_SECRET" https://crm.propyte.com/api/cron/google/gmail-sync
 import { NextRequest, NextResponse } from "next/server"
 import { rechazoCron } from "@/lib/cron/auth"

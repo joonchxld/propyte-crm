@@ -1,4 +1,4 @@
-// Pull de TikTok Lead Generation (Anexo B §H.4) — agendar en Hostinger CADA 5 MIN:
+// Pull de TikTok Lead Generation (Anexo B §H.4) — agendado en el crontab de root del VPS CADA 5 MIN:
 //   curl -s -H "x-cron-secret: $CRON_SECRET" https://crm.propyte.com/api/cron/connectors/tiktok
 // Trae leads con create_time > lastSyncAt por cada conector TIKTOK activo.
 import { NextRequest, NextResponse } from "next/server";

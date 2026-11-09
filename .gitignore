@@ -1,6 +1,6 @@
 # dependencies
 /node_modules
-# #921 — el CRM usa SOLO pnpm (es lo que instala Hostinger). Un `npm install` regenera
+# #921 — el CRM usa SOLO pnpm (es lo que instala producción). Un `npm install` regenera
 # package-lock.json; se ignora para que no vuelva al repo y la CI y producción no vuelvan
 # a probar versiones distintas. Si te salió este archivo, bórralo y usa `npx pnpm@10 install`.
 package-lock.json

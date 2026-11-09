@@ -20,7 +20,7 @@ afterEach(() => {
 const args = { hubUnitId: "u1", crmDealId: "d1" };
 
 describe("variables del Hub (#961, seguimiento)", () => {
-  it("se leen en cada llamada: ponerlas después de cargar el módulo basta (hPanel + reinicio)", async () => {
+  it("se leen en cada llamada: ponerlas después de cargar el módulo basta (.env del VPS + redespliegue)", async () => {
     const fetch = vi.fn(async () => new Response(JSON.stringify({ unit: { id: "u1", status: "APARTADA", holdExpiresAt: null } }), { status: 200 }));
     vi.stubGlobal("fetch", fetch);
     const { requestUnitHold } = await cliente({});

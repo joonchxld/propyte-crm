@@ -109,7 +109,7 @@ describe("avisoDeOrigen", () => {
   it("avisa cuando el token viene del entorno y no se puede rotar desde la pantalla", () => {
     // Callarlo dejaría un botón que parece funcionar y no cambia nada.
     expect(avisoDeOrigen("entorno")).toMatch(/MCP_REVISION_TOKEN/);
-    expect(avisoDeOrigen("entorno")).toMatch(/borrarla de Hostinger/);
+    expect(avisoDeOrigen("entorno")).toMatch(/borrarla del \.env del VPS/);
   });
 
   it("no avisa nada cuando ya vive en la base", () => {

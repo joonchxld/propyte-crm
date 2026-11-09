@@ -8,6 +8,8 @@ export interface DatosEntrante {
   nombre: string;
   telefono: string;
   esNuevo: boolean;
+  /** El contacto no tiene asesor: la llamada llega al responsable. */
+  sinAsesor?: boolean;
 }
 
 export interface VoiceState {
@@ -68,6 +70,7 @@ export function datosDeLlamante(
     nombre: (custom?.get("nombre") ?? "").trim(),
     telefono: parameters?.From ?? "",
     esNuevo: custom?.get("esNuevo") === "1",
+    sinAsesor: custom?.get("sinAsesor") === "1",
   };
 }
 

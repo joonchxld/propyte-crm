@@ -247,6 +247,9 @@ export function VoiceDeviceProvider({ userId, children }: { userId?: string; chi
           <p className="mt-1 text-[16px] font-semibold text-gray-900">
             {incoming.esNuevo ? "Número nuevo" : etiquetaLlamante(incoming)}
           </p>
+          {incoming.sinAsesor && (
+            <p className="text-[12px] font-medium text-amber-700">Contacto sin asesor</p>
+          )}
           {(incoming.nombre || incoming.esNuevo) && incoming.telefono && (
             <p className="text-[13px] text-gray-600">{incoming.telefono}</p>
           )}

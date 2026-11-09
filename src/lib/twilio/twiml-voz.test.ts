@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buzonTwiml, escapeXml, parametrosLlamanteTwiml, twimlTrasDial } from "./twiml-voz";
+import { buzonTwiml, clientesTwiml, escapeXml, parametrosLlamanteTwiml, twimlTrasDial } from "./twiml-voz";
 
 describe("twiml-voz", () => {
   it("escapeXml escapa los cinco caracteres", () => {
@@ -17,6 +17,15 @@ describe("twiml-voz", () => {
     const x = parametrosLlamanteTwiml({ contactId: "c1", nombre: `O"Brien <x>`, esNuevo: true });
     expect(x).toContain('name="nombre" value="O&quot;Brien &lt;x&gt;"');
     expect(x).toContain('name="esNuevo" value="1"');
+  });
+
+  it("clientesTwiml: un <Client> por usuario con los mismos parámetros; sinAsesor solo si aplica", () => {
+    const x = clientesTwiml(["u1", "u<2"], { contactId: "c1", nombre: "A", esNuevo: false, sinAsesor: true });
+    expect(x.match(/<Client>/g)).toHaveLength(2);
+    expect(x).toContain("<Client>u1<Parameter");
+    expect(x).toContain("<Client>u&lt;2<Parameter");
+    expect(x.match(/name="sinAsesor" value="1"/g)).toHaveLength(2);
+    expect(clientesTwiml(["u1"], { contactId: "c1", nombre: "A", esNuevo: false })).not.toContain("sinAsesor");
   });
 
   it.each(["completed", "answered"])("twimlTrasDial %s → Hangup", (st) => {

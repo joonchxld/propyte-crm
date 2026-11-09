@@ -1,4 +1,5 @@
 import { isCustomTarget } from "./fields";
+import { isPlaceholderFirstName } from "@/lib/messaging/lead-form-summary";
 
 export interface PlaybookTaskLite {
   key: string;
@@ -21,6 +22,9 @@ export function isFieldFilled(contact: Record<string, unknown>, targetField: str
   }
 
   const value = contact[targetField];
+  // #989: «Messenger», «Instagram», «WhatsApp» o un @usuario los pone el alta cuando el canal no
+  // da un nombre real. Contaban como nombre ya capturado y el guion se saltaba la pregunta.
+  if (targetField === "firstName" && typeof value === "string") return !isPlaceholderFirstName(value);
   return value !== null && value !== undefined && value !== "";
 }
 

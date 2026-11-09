@@ -240,7 +240,7 @@ export function AutomationSection({
           <summary className="cursor-pointer">Detalles técnicos</summary>
           <p className="mt-1">
             Las reglas se ejecutan con una tarea programada (cron) en <code>/api/cron/workflows</code> que debe estar
-            activa en Hostinger. Si &ldquo;Eventos por procesar&rdquo; no baja, revisa que esa tarea esté corriendo.
+            activa en el servidor (crontab del VPS). Si &ldquo;Eventos por procesar&rdquo; no baja, revisa que esa tarea esté corriendo.
           </p>
         </details>
       </div>

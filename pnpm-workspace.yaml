@@ -1,11 +1,11 @@
 # pnpm 11 movio sus settings fuera de .npmrc hacia este archivo.
-# El .npmrc de al lado cubre pnpm 10 (la version que corre hoy en Hostinger);
+# El .npmrc de al lado cubre pnpm 10 (la que usa produccion: deploy.sh del VPS, 10.32.1);
 # esta entrada cubre pnpm 11+ por si la plataforma actualiza. Ver .npmrc para el motivo.
 nodeLinker: hoisted
 
 # Build scripts de dependencias (#774). pnpm 10 los ignora con un aviso; pnpm 11 aborta el
 # install con ERR_PNPM_IGNORED_BUILDS si alguno no esta decidido aqui. Todos en false = lo
-# mismo que hace hoy pnpm 10 en Hostinger y en la CI, sin cambiar nada de lo que corre:
+# mismo que hace hoy pnpm 10 en produccion (VPS) y en la CI, sin cambiar nada de lo que corre:
 # - Prisma: el cliente lo genera el `postinstall` del proyecto (`prisma generate`), no estos.
 # - esbuild y unrs-resolver: su binario llega como dependencia opcional por plataforma; el
 #   script solo lo re-verifica.

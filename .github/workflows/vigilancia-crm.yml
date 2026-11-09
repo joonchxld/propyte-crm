@@ -6,13 +6,14 @@
 # `SELECT 1` real— y, si falla dos veces seguidas, abre un issue asignado a quien tiene que
 # actuar. Cuando el CRM vuelve, el issue se cierra solo.
 #
-# Externo a propósito: corre en servidores de GitHub, no en Hostinger. Un monitor que vive
+# Externo a propósito: corre en servidores de GitHub, no en el VPS. Un monitor que vive
 # en el mismo servidor se cae junto con lo que vigila.
 #
 # Cuándo corre:
 #   - cada 30 min (en los minutos 7 y 37, lejos de la hora en punto, que es cuando GitHub
 #     más retrasa los cron);
-#   - después de cada push a main, esperando 10 min a que Hostinger termine de compilar
+#   - después de cada push a main, esperando 10 min a que el VPS termine de compilar (lo
+#     revisa cada 2 min y compila en ~5)
 #     (apartado (a) de la #771 — ver en el script lo que esta comprobación NO cubre);
 #   - a mano, desde la pestaña Actions («Run workflow»), para probarlo.
 #
@@ -61,7 +62,7 @@ jobs:
           sparse-checkout: .github/scripts
           sparse-checkout-cone-mode: false
 
-      - name: Esperar a que Hostinger termine de publicar
+      - name: Esperar a que el VPS termine de publicar
         if: github.event_name == 'push'
         run: sleep 600
 

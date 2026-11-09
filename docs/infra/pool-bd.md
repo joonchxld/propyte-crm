@@ -9,11 +9,13 @@ Algunas pantallas (Hoy, Administración, Huérfanos) fallan a veces con:
 El CRM se conecta a Supabase por el **pooler en modo sesión (puerto 5432)**. En ese modo cada
 conexión que abre el CRM queda reservada mientras el proceso vive, y el máximo del pooler es **15**.
 
-El CRM corre en **Hostinger Cloud con Passenger** (no en Vercel). Passenger puede tener varios
-procesos de Node a la vez, y cada proceso tiene su propio pool de Prisma del tamaño de
-`connection_limit` en `DATABASE_URL` (hoy `5`, puesto en junio de 2026). Con 3 procesos son
-15 conexiones: el tope. Si además una pantalla lanza 11–13 consultas a la vez, se piden todas
-juntas.
+Desde el 2026-11-06 el CRM corre en el **VPS de Hostinger, en 2 contenedores de Docker**
+(`propyte-crm-1` y `propyte-crm-2`; ver `docs/infra/vps.md`). Cada contenedor es un proceso de
+Node con su propio pool de Prisma del tamaño de `connection_limit` en `DATABASE_URL`: con `5`
+son 10 conexiones. (Antes corría en hPanel con Passenger, que podía tener 3 procesos = 15, el
+tope.) **Mientras la app vieja de hPanel siga encendida, sus procesos pueden tener conexiones
+abiertas también**: detenerla libera ese margen. Si además una pantalla lanza 11–13 consultas a
+la vez, se piden todas juntas.
 
 ## Qué arregla el código (este PR)
 
@@ -27,13 +29,13 @@ forma permanente (`ECHECKOUTTIMEOUT`) y por eso el CRM está en 5432.
 
 ### Paso 1. Bajar `connection_limit` a 3
 
-1. hPanel > Websites > crm.propyte.com > **Node.js** (o «Settings and redeploy») >
-   **Variables de entorno**.
+1. En el VPS: `nano /opt/propyte/crm/shared/.env`.
 2. En `DATABASE_URL`, cambia `connection_limit=5` por `connection_limit=3`. No toques nada más
    de la URL.
-3. Guarda y redeploy. Las variables solo se leen al arrancar.
+3. Guarda y redespliega: `/opt/propyte/crm/deploy.sh main`. Las variables solo se leen al
+   arrancar.
 
-Así 3 procesos usan 9 conexiones y quedan 6 para el Hub, scripts y picos.
+Así los 2 contenedores usan 6 conexiones y quedan 9 para el Hub, scripts y picos.
 
 ### Paso 2 (solo si vuelve a pasar). Subir el tamaño del pool en Supabase
 
@@ -44,4 +46,4 @@ depende del tamaño de la instancia. Subirlo da más margen a todos los que usan
 
 - Si aparece «Timed out fetching a new connection from the connection pool», sube a
   `connection_limit=4`.
-- Para volver atrás, pon de nuevo `connection_limit=5` y redeploy.
+- Para volver atrás, pon de nuevo `connection_limit=5` y corre `deploy.sh main`.

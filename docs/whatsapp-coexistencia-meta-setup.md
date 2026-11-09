@@ -1,6 +1,6 @@
 # Configurar Meta para «Conectar WhatsApp (oficial)»
 
-**Para quién:** la persona que administra la app de Meta de Propyte CRM y el panel de Hostinger. No hace
+**Para quién:** la persona que administra la app de Meta de Propyte CRM y el VPS donde corre el CRM. No hace
 falta saber programar. **Fecha:** 2026-10-14.
 
 Con esto, un WhatsApp Business que ya se usa en el teléfono (el de Yaxnáh, el de cada asesor) se conecta al
@@ -18,7 +18,7 @@ casilla cuando la termines.
 
 - [ ] Tienes rol de **administrador** en la app de Meta de Propyte CRM (developers.facebook.com → Mis apps).
 - [ ] La app es de tipo **Business** y está ligada al portafolio comercial (Business Manager) de Propyte.
-- [ ] Tienes acceso a **hPanel** de Hostinger para poner variables de entorno y reiniciar la app.
+- [ ] Tienes acceso por SSH al **VPS** del CRM para poner variables de entorno y redesplegar (ver `docs/infra/vps.md`).
 - [ ] La dirección del CRM es **https://crm.propyte.com** (con candado: Meta exige HTTPS).
 
 ---
@@ -108,9 +108,9 @@ En **Campos del webhook** (*Webhook fields*), suscribir (además de `messages`, 
 
 ---
 
-## 5. Variables de entorno en hPanel
+## 5. Variables de entorno en el VPS
 
-En hPanel → el sitio del CRM → **Node.js → Variables de entorno**:
+En el VPS, en el archivo `/opt/propyte/crm/shared/.env` (`nano /opt/propyte/crm/shared/.env`), una por línea con el formato `NOMBRE="valor"`:
 
 | Variable | Valor | ¿Secreta? |
 |---|---|---|
@@ -120,7 +120,7 @@ En hPanel → el sitio del CRM → **Node.js → Variables de entorno**:
 
 - [ ] Poner las dos variables nuevas.
 - [ ] Confirmar que `META_WA_APP_SECRET` ya está puesta (si falta, el webhook de WhatsApp tampoco funciona).
-- [ ] **Reiniciar la app** en hPanel. No hace falta volver a compilar: el CRM lee estas variables al momento.
+- [ ] **Redesplegar**: `/opt/propyte/crm/deploy.sh main` (unos 5 min; el CRM no se corta). Ver `docs/infra/vps.md`.
 
 Si falta alguna, el botón «Conectar WhatsApp (oficial)» no falla: dice exactamente cuál falta.
 

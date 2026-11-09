@@ -79,7 +79,7 @@ export function avisoDeOrigen(origen: OrigenToken): string {
     return (
       "Este token viene de la variable MCP_REVISION_TOKEN, no de la base. Al generar uno nuevo " +
       "la puerta empezará a usar el de la base y el de la variable dejará de tener efecto: " +
-      "conviene borrarla de Hostinger para no dejar un secreto vivo que nadie sabe que existe."
+      "conviene borrarla del .env del VPS para no dejar un secreto vivo que nadie sabe que existe."
     );
   }
   return "";

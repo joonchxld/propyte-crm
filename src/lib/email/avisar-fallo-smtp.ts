@@ -3,7 +3,7 @@
  * personas. Texto y causa viven en `fallo-smtp.ts` (puro).
  *
  * A QUIÉN: los ADMIN con `usuarioRuteableWhere()` (activos, no borrados, sin correo `.local`).
- * Son quienes pueden tocar hPanel o pedir que se toque; avisarle a una cuenta técnica sería
+ * Son quienes pueden tocar el servidor (el .env del VPS) o pedir que se toque; avisarle a una cuenta técnica sería
  * repetir el silencio con otro nombre.
  *
  * DEDUP: un aviso por administrador mientras tenga uno SIN LEER de este tipo de las últimas

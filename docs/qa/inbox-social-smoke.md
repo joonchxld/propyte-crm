@@ -6,9 +6,9 @@
 > ⚠️ **No tiene sentido correr §1–§10 hasta que el PR esté mergeado Y el conector Meta esté configurado.** Una auditoría previa contra prod sin el deploy reportó "no existe el conector / filtro / webhook" — era porque la feature aún no estaba desplegada.
 
 ## 0. Prerrequisitos
-- [ ] PR `feat/crm-inbox-social` **mergeado a main** y deploy Hostinger confirmado.
+- [ ] PR `feat/crm-inbox-social` **mergeado a main** y deploy confirmado (VPS: `tail /var/log/crm-deploy.log`).
 - [ ] Conector IG/Messenger creado y **ACTIVE** en Admin → Integraciones (pageAccessToken/appSecret/pageId).
-- [ ] Env vars `META_DM_VERIFY_TOKEN` + `META_DM_APP_SECRET` en Hostinger.
+- [ ] Env vars `META_DM_VERIFY_TOKEN` + `META_DM_APP_SECRET` en el .env del VPS (`/opt/propyte/crm/shared/.env`).
 - [ ] Webhook Meta suscrito al field `messages` (objetos `instagram` y `page`), callback `https://crm.propyte.com/api/webhooks/meta-dm`.
 - [ ] IG profesional vinculada a la página FB.
 
@@ -18,7 +18,7 @@
 - [ ] `POST` con firma `x-hub-signature-256` **inválida** (con `META_DM_APP_SECRET` configurado) → **401**.
 - [ ] `POST` con `object` desconocido → **200** `{processed:0}`.
 
-> 🔴 **GATE DE INFRA (riesgo real, Grupo B de la auditoría):** una ruta inexistente en Hostinger devuelve **403 uniforme** (incluso a POST) desde el CDN/host, no desde la app. Tras el deploy, confirmar que el `POST` de Meta **llega al handler** (debe dar 401 con firma mala, no 403 genérico) y que el CDN `hcdn` **no bloquea** el POST. El webhook usa `x-hub-signature-256` (no `Authorization`), así que el stripping de header conocido no aplica — pero validar en vivo con el "Test" del panel de Meta.
+> 🔴 **GATE DE INFRA (riesgo real, Grupo B de la auditoría):** una ruta inexistente en Hostinger devuelve **403 uniforme** (incluso a POST) desde el CDN/host, no desde la app. Tras el deploy, confirmar que el `POST` de Meta **llega al handler** (debe dar 401 con firma mala, no 403 genérico) y que el CDN `hcdn` **no bloquea** el POST. El webhook usa `x-hub-signature-256` (no `Authorization`), así que el stripping de header conocido no aplica — pero validar en vivo con el "Test" del panel de Meta. _(Esto era con hPanel y su CDN `hcdn`. Desde 2026-11 el CRM corre en el VPS detrás de Caddy, sin CDN: una ruta inexistente da el 404 de Next.)_
 
 ## 2. Recepción Instagram
 - [ ] DM a la cuenta IG desde una cuenta personal → **conversación nueva en `/inbox`** con badge **Instagram**.

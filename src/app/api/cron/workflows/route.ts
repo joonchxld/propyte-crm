@@ -1,4 +1,4 @@
-// Tick del motor de workflows (Anexo §D.1) — agendar en Hostinger CADA MINUTO:
+// Tick del motor de workflows (Anexo §D.1) — agendado en el crontab de root del VPS CADA MINUTO:
 //   curl -s -H "x-cron-secret: $CRON_SECRET" https://crm.propyte.com/api/cron/workflows
 // Hace: eventos pendientes → cola de acciones → SLA breaches → enrollments → reglas INACTIVITY
 // → … → correo entrante de Gmail (#889).

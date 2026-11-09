@@ -27,7 +27,7 @@ Seguir un lead QA desde intake hasta deal cerrado cruzando roles: intake (`/cone
 ## 3. Automatizaciones (recon-notes §6)
 Observabilidad en `GET /api/admin/automation` (consumido desde `/configuracion` → automation-section / cadence-editor) y `/journey` (+ `/api/admin/journey/metrics`).
 - Con un lead/deal QA, disparar la condición de una regla/cadencia y verificar el efecto: revisar el bloque `observability` (ActionQueue por status, últimas 10 FAILED, `eventsPending`/`eventsDone24h`) y el `Activity` resultante en el historial del contacto/deal.
-- Verificar en vivo si el cron `GET /api/cron/workflows` está agendado en Hostinger (BUG-19 lo reportó sin agendar al 2026-06-15). Si `eventsPending` crece sin drenar → el cron no corre → `automation-gap` crítico.
+- Verificar en vivo si el cron `GET /api/cron/workflows` está agendado en el crontab de root del VPS (BUG-19 lo reportó sin agendar al 2026-06-15). Si `eventsPending` crece sin drenar → el cron no corre → `automation-gap` crítico.
 - Anotar **mejoras** posibles de cada automatización (categoría `mejora`).
 
 ## 4. Consistencia de estados

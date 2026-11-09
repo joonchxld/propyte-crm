@@ -2,7 +2,7 @@
 //
 // Por qué se lee aquí y se pasa como prop, en vez de usar `process.env.NEXT_PUBLIC_*` en el
 // componente: Next congela en el build cada referencia LITERAL a `process.env.NEXT_PUBLIC_X`
-// (en el cliente y también en el servidor). En Hostinger las variables se cambian en hPanel y la
+// (en el cliente y también en el servidor). Cuando el CRM vivía en hPanel (hasta 2026-11) las variables se cambiaban en el panel y la
 // app se reinicia sin recompilar, así que una referencia literal se quedaría con el valor del
 // último build —vacío la primera vez— y el botón diría «falta configurar» aunque ya estuviera.
 // El acceso dinámico (`env[nombre]`) no se congela: se lee en cada petición.

@@ -116,7 +116,7 @@ alcanzó a leer:
 [meta-dm] comentario descartado (sin-autor) platform=INSTAGRAM account=... comment=...
 ```
 
-- [ ] Revisar los logs de runtime de `crm.propyte.com` (Hostinger) filtrando
+- [ ] Revisar los logs de runtime de `crm.propyte.com` (VPS: `docker compose -f /opt/propyte/crm/docker-compose.yml logs`) filtrando
       por `[meta-dm] comentario descartado` para confirmar que no se están
       perdiendo comentarios de clientes reales en silencio. No hay contador
       en la UI todavía — solo el log del servidor.

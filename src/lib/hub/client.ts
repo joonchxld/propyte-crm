@@ -22,7 +22,7 @@ import type {
 } from "./types";
 
 // #961: las variables se leen en CADA llamada y por nombre (`env[nombre]`), no una vez al cargar el
-// módulo ni con la referencia literal: así basta con ponerlas en hPanel y reiniciar, y el mensaje
+// módulo ni con la referencia literal: así basta con ponerlas en el .env del VPS y redesplegar, y el mensaje
 // dice cuál falta. Se toleran espacios y comillas pegadas al copiar el valor en el panel.
 export const ENV_HUB_BASE = "HUB_API_BASE_URL";
 export const ENV_HUB_KEY = "HUB_API_KEY";

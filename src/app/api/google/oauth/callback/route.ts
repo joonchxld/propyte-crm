@@ -9,7 +9,7 @@ import prisma from "@/lib/db"
 
 export const dynamic = "force-dynamic"
 
-// Detrás del proxy de Hostinger, req.url resuelve al host interno (0.0.0.0:3000).
+// Detrás del proxy (antes hPanel, hoy Caddy en el VPS), req.url resuelve al host interno (0.0.0.0:3000).
 // Usar el dominio público configurado para los redirects.
 function appBase(req: NextRequest): string {
   return process.env.NEXTAUTH_URL || new URL(req.url).origin

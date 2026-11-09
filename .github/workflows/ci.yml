@@ -6,7 +6,7 @@
 # de llegar a producción — entre ellos un filtro que Prisma descartaba en silencio y un
 # botón que llamaba a una ruta inexistente.
 #
-# Gestor de paquetes (#921): pnpm 10, el MISMO que usa Hostinger para instalar producción, y
+# Gestor de paquetes (#921): pnpm 10, el MISMO que usa producción (deploy.sh del VPS), y
 # con `--frozen-lockfile`. Antes la CI corría `npm ci` sobre package-lock.json mientras el
 # servidor instalaba con pnpm sobre pnpm-lock.yaml: la CI daba verde con versiones que
 # producción no usaba (p. ej. @twilio/voice-sdk 2.18.5 en CI, 2.18.0 en prod — #920), y
@@ -58,21 +58,24 @@ jobs:
       # Va ANTES de setup-node: su `cache: pnpm` necesita el binario de pnpm ya en el PATH.
       - uses: pnpm/action-setup@v6
         with:
-          # La versión que corre el servidor (log de despliegue de hPanel, #773/#772). Fija y
-          # no «10» a secas: pnpm 11+ cambia la aprobación de build scripts y rompe el install
-          # (#772). Si Hostinger sube de versión, cambiarla aquí también.
+          # La versión que usa producción (`npx pnpm@10.32.1` en /opt/propyte/crm/deploy.sh del
+          # VPS; antes, la de hPanel, #773/#772). Fija y no «10» a secas: pnpm 11+ cambia la
+          # aprobación de build scripts y rompe el install (#772). Si se cambia en deploy.sh,
+          # cambiarla aquí también.
           version: 10.32.1
 
       - uses: actions/setup-node@v7
         with:
-          # La misma versión mayor que corre producción: hPanel → «Versión de Node: 22.x»
-          # (#912). Antes era 20, que llegó a fin de vida en abril de 2026 y además no es lo
-          # que ejecuta el servidor. Si se cambia la versión en hPanel, cambiarla aquí también.
+          # La misma versión mayor que corre producción: imagen `node:22-bookworm` en
+          # /opt/propyte/crm/docker-compose.yml y deploy.sh del VPS (#912). Antes era 20, que
+          # llegó a fin de vida en abril de 2026. Si se cambia la imagen en el VPS, cambiarla
+          # aquí también.
           node-version: "22"
           cache: pnpm
 
       # `--frozen-lockfile`: instala EXACTAMENTE pnpm-lock.yaml y falla si no casa con
-      # package.json. Producción instala sin congelar, así que esta es la única barrera.
+      # package.json. Producción (deploy.sh del VPS) también instala congelado: un lock que no
+      # casa detiene el despliegue allá y se queda la versión anterior. Mejor que falle aquí.
       # `postinstall` del proyecto corre `prisma generate`, así que el cliente queda
       # generado aquí. Importa: sin él, 34 archivos de prueba no cargan. pnpm 10 ignora los
       # build scripts de las dependencias (no el postinstall del proyecto), igual que en el

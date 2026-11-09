@@ -22,10 +22,17 @@ beforeEach(() => {
 });
 
 describe("voice/dial-action", () => {
-  it("contestada → Response vacío (sin buzón)", async () => {
+  it("contestada → cuelga (sin buzón)", async () => {
     const res = await POST(formReq({ DialCallStatus: "completed" }));
     const xml = await res.text();
+    expect(xml).toContain("<Hangup/>");
     expect(xml).not.toContain("<Record");
+  });
+
+  it.each(["no-answer", "busy", "failed", "canceled"])("%s → buzón", async (st) => {
+    const xml = await (await POST(formReq({ DialCallStatus: st }))).text();
+    expect(xml).toContain("<Record");
+    expect(xml).not.toContain("<Hangup");
   });
 
   it("answered → Response vacío (sin buzón)", async () => {

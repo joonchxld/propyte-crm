@@ -45,7 +45,8 @@ async function guardar(id: string, resultado: string | null, variante?: string |
   }
 }
 
-function ToqueFila({
+/** Un toque con su texto y sus botones de resultado. Lo usa también la carta de Copilot (#997). */
+export function ToqueFila({
   toque,
   tarea,
   userId,

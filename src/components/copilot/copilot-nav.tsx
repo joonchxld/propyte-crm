@@ -3,6 +3,14 @@
 import Link from "next/link";
 import { puedeVerVencidas } from "@/lib/copilot/roles";
 
+/**
+ * #997: el mismo ancho para todas las pestañas de Copilot. Si cada página usa el suyo, al cambiar
+ * de pestaña todo se recentra y las pestañas «brincan». El contenido angosto (Vencidas, la lista)
+ * va adentro con `ANCHO_LECTURA`, pegado a la izquierda.
+ */
+export const ANCHO_COPILOT = "mx-auto max-w-6xl";
+export const ANCHO_LECTURA = "max-w-4xl";
+
 export function CopilotNav({ actual, role }: { actual: "mi-dia" | "vencidas"; role: string }) {
   const pestañas = [
     { clave: "mi-dia", href: "/copilot", texto: "Mi día" },

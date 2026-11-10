@@ -25,10 +25,13 @@ export function ClasificarRespuesta({
   pendiente,
   onCambio,
   mostrarContacto = true,
+  sinMarco = false,
 }: {
   pendiente: ClasificacionPendiente;
   onCambio: () => void;
   mostrarContacto?: boolean;
+  /** #997: dentro de la carta de Copilot, que ya trae su propio marco. */
+  sinMarco?: boolean;
 }) {
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +59,7 @@ export function ClasificarRespuesta({
   }
 
   return (
-    <div className="crm-card ring-1 ring-sky-300 dark:ring-sky-900">
+    <div className={sinMarco ? "" : "crm-card ring-1 ring-sky-300 dark:ring-sky-900"}>
       <div className="flex flex-wrap items-center gap-2">
         <MessageSquareReply className="h-4 w-4 text-sky-600" aria-hidden="true" />
         <span className="text-[13px] font-semibold text-[color:var(--text-primary)]">Clasificar respuesta</span>

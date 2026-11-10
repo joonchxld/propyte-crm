@@ -48,7 +48,7 @@ const toque = (x: Partial<FilaToque>): FilaToque => ({
 
 function armar(toques: FilaToque[], contactos: FilaContacto[] = [contacto({})], cadencias = ["k1"]) {
   return armarTareas({
-    cadencias: cadencias.map((id, i) => ({ id, contactId: contactos[i]?.id ?? "c1", tipo: "NUEVOS", estado: "ACTIVA", motivoFin: null, inicio: "2026-11-06T15:57:00Z", diaInicio: "2026-11-06", modoSms: null })),
+    cadencias: cadencias.map((id, i) => ({ id, contactId: contactos[i]?.id ?? "c1", tipo: "NUEVOS", estado: "ACTIVA", motivoFin: null, inicio: "2026-11-06T15:57:00Z", diaInicio: "2026-11-06", nombre: "Cadencia de nuevos", finDias: 15 })),
     toques,
     contactos,
     asesores: [{ id: "u1", name: "Conrad Alvarado", role: "GERENTE", phone: null }],
@@ -71,6 +71,7 @@ describe("armarTareas", () => {
     expect(d1.toques[0].texto).toBeNull(); // la llamada lleva guion, no plantilla
     expect(d1.contacto.pais).toBe("MX");
     expect(d1.ultimoDia).toBe(15);
+    expect(d1.nombreCadencia).toBe("Cadencia de nuevos");
   });
 
   it("el idioma del lead elige la plantilla", () => {
@@ -107,5 +108,31 @@ describe("ordenarMiDia", () => {
     expect(r.tareas.map((t) => t.contacto.id)).toEqual(["c1", "c3", "c2"]);
     expect(r.fueraDelTope).toBe(1);
     expect(r.hechasHoy.map((t) => t.contacto.id)).toEqual(["c4"]);
+  });
+});
+
+describe("#993: ramas", () => {
+  it("vencido se cuenta desde programadoAt; el aviso del paso llega al asesor", () => {
+    const [t] = armar([toque({ codigo: "A2", canal: "MISMO_CANAL", plantilla: "WA1", createdAt: "2026-11-01T00:00:00Z", programadoAt: "2026-11-06T15:00:00Z", nota: "Solo si contestó sin horario" })]);
+    expect(t.toques[0].vencido).toBe(false);
+    expect(t.toques[0].nota).toBe("Solo si contestó sin horario");
+    expect(t.toques[0].bloqueo).toBeNull();
+  });
+  it("con opt-out de WhatsApp el toque de WhatsApp sale bloqueado", () => {
+    const [t] = armar([toque({ codigo: "WA2", canal: "WHATSAPP", plantilla: "WA1" })], [contacto({ whatsappOptOut: true })]);
+    expect(t.toques[0].bloqueo).toBe("Pidió no recibir WhatsApp");
+  });
+  it("[MES] del B2a es el mes de la fecha de recontacto", () => {
+    const pl: Plantilla[] = [...plantillas, { id: "9", codigo: "R_B2a", idioma: "ES", variante: "", canal: "WHATSAPP", nombre: "B2a", asunto: null, cuerpo: "Te escribo en [MES]" }];
+    const tareas = armarTareas({
+      cadencias: [{ id: "k1", contactId: "c1", tipo: "POSPUSO", estado: "ACTIVA", motivoFin: null, inicio: "2026-11-06T15:57:00Z", diaInicio: "2026-11-06" }],
+      toques: [toque({ codigo: "B2A", canal: "MISMO_CANAL", plantilla: "R_B2a" })],
+      contactos: [contacto({ fechaRecontacto: "2027-03-15" })],
+      asesores: [],
+      temperaturas: [],
+      plantillas: pl,
+      ahora,
+    });
+    expect(tareas[0].toques[0].texto?.texto).toBe("Te escribo en marzo");
   });
 });

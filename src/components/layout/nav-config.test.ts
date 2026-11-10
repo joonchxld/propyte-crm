@@ -141,4 +141,12 @@ describe("nav-config — orden del sidebar", () => {
       expect(ve, role).toBe(["ADMIN", "DIRECTOR", "GERENTE"].includes(role));
     }
   });
+
+  it("#993: Cadencias vive en Desempeño y solo lo ven ADMIN, DIRECTOR y GERENTE", () => {
+    expect(navGroups[2].items.map((i) => i.href)).toContain("/cadencias");
+    for (const role of Object.values(UserRole)) {
+      const ve = visibleNavItems(role).some((i) => i.href === "/cadencias");
+      expect(ve, role).toBe(["ADMIN", "DIRECTOR", "GERENTE"].includes(role));
+    }
+  });
 });

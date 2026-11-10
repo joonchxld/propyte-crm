@@ -49,7 +49,7 @@ export default async function VencidasPage() {
       <CopilotNav actual="vencidas" role={session.user.role} />
       <h1 className="mb-1 text-lg font-semibold text-[color:var(--text-primary)]">Vencidas por asesor</h1>
       <p className="mb-4 text-[12px] text-[color:var(--text-tertiary)]">
-        Tareas de la cadencia de nuevos con 24 h o más sin marcar. Al vencer se avisa al gerente; no se reasignan.
+        Tareas de Copilot con 24 h o más sin marcar. Al vencer se avisa al gerente; no se reasignan.
       </p>
       {sinMigrar ? (
         <div className="crm-card text-[13px] text-[color:var(--text-secondary)]">Falta correr la migración de «Mi día» (#988).</div>
@@ -72,7 +72,7 @@ export default async function VencidasPage() {
                       {c.nombre}
                     </Link>
                     <span className="text-[color:var(--text-tertiary)]">
-                      Día {c.dia} · {haceCuanto(c.desde)}
+                      {c.cadencia} · día {c.dia} · {haceCuanto(c.desde)}
                     </span>
                   </li>
                 ))}

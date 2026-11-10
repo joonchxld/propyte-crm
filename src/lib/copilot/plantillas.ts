@@ -34,6 +34,8 @@ export interface VariablesPlantilla {
   lineaValor: string | null;
   /** Cifra SHF de la zona («+13.5%»), o null si la zona no tiene cifra. */
   cifra: string | null;
+  /** #993: nombre del mes para [MES] (plantillas de las ramas). */
+  mes?: string | null;
 }
 
 // ───────────────────────────── zona ─────────────────────────────
@@ -148,6 +150,7 @@ export function llenarVariables(texto: string, v: VariablesPlantilla): string {
     [/\[CIFRA\]/g, v.cifra],
     [/\[wa\.me\/N[ÚU]MERO\]/gi, v.waAsesor],
     [/\[WhatsApp\]/g, v.waAsesor],
+    [/\[MES\]/g, v.mes ?? null],
   ];
   let out = texto;
   // Dos pasadas: la línea de valor y la firma traen [ZONA], [ASESOR]… adentro.

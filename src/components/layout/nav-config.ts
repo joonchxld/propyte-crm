@@ -29,10 +29,12 @@ import {
   Plug,
   BriefcaseBusiness,
   Sparkles,
+  Repeat,
 } from "lucide-react"
 import { COMMENT_RULES_ROLES } from "@/lib/comments/roles"
 import { REPORTES_ROLES } from "@/lib/rbac/report-scope"
 import { RECLUTAMIENTO_ROLES } from "@/lib/reclutamiento/roles"
+import { CADENCIAS_ROLES } from "@/lib/copilot/roles"
 
 const ASESORES = ["ASESOR", "ASESOR_SR", "ASESOR_JR"]
 // MANTENIMIENTO/DEVELOPER_EXT entran a los básicos (Hoy/Dashboard/Contactos/Mi Config):
@@ -84,6 +86,8 @@ export const navGroups: Array<{ title: string | null; items: NavItem[] }> = [
       { label: "Mi Carrera", href: "/career", icon: TrendingUp, roles: ["TEAM_LEADER", ...ASESORES] },
       // #926: datos personales de candidatos — la lista vive en el módulo de permiso (menú y puerta iguales).
       { label: "Reclutamiento", href: "/reclutamiento", icon: BriefcaseBusiness, roles: [...RECLUTAMIENTO_ROLES] },
+      // #993: el catálogo de cadencias que sigue Copilot. La lista vive en el módulo de permiso.
+      { label: "Cadencias", href: "/cadencias", icon: Repeat, roles: [...CADENCIAS_ROLES] },
       // #893: la lista vive en el módulo de permiso, para que el menú y la puerta de /reports no se separen.
       { label: "Reportes", href: "/reports", icon: BarChart3, roles: [...REPORTES_ROLES] },
     ],

@@ -11,7 +11,7 @@ import { esTablaSinMigrar } from "@/lib/copilot/sin-migrar";
 import type { MiDia } from "@/lib/copilot/mi-dia";
 import { MiDiaView } from "@/components/copilot/mi-dia-view";
 import { CopilotFoco } from "@/components/copilot/copilot-foco";
-import { CopilotNav } from "@/components/copilot/copilot-nav";
+import { ANCHO_COPILOT, ANCHO_LECTURA, CopilotNav } from "@/components/copilot/copilot-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -39,20 +39,22 @@ export default async function CopilotPage({ searchParams }: { searchParams: Prom
 
   if (enLista) {
     return (
-      <div className="mx-auto max-w-4xl">
+      <div className={ANCHO_COPILOT}>
         <CopilotNav actual="mi-dia" role={session.user.role} />
-        <p className="mb-3 text-[12px]">
-          <Link href="/copilot" className="text-[color:var(--text-secondary)] hover:text-[color:var(--text-primary)]">
-            ← Volver a una a la vez
-          </Link>
-        </p>
-        <MiDiaView data={plano} userId={session.user.id} sinMigrar={sinMigrar} />
+        <div className={ANCHO_LECTURA}>
+          <p className="mb-3 text-[12px]">
+            <Link href="/copilot" className="text-[color:var(--text-secondary)] hover:text-[color:var(--text-primary)]">
+              ← Volver a una a la vez
+            </Link>
+          </p>
+          <MiDiaView data={plano} userId={session.user.id} sinMigrar={sinMigrar} />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className={ANCHO_COPILOT}>
       <CopilotNav actual="mi-dia" role={session.user.role} />
       <CopilotFoco data={plano} userId={session.user.id} sinMigrar={sinMigrar} />
     </div>
